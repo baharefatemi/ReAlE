@@ -125,7 +125,7 @@ class Experiment:
                         best_model_path = os.path.join(self.output_dir, "best_model.chkpnt")
                         self.best_model = self.get_model_from_name(self.model_name)
                         self.best_model.load_state_dict(torch.load(best_model_path))
-                        "Loading the model {} with best MRR {}.".format(self.pretrained, self.best_model.best_mrr))
+                        print("Loading the model {} with best MRR {}.".format(self.pretrained, self.best_model.best_mrr))
                     except:
                         print("*** NO BEST MODEL FOUND in {}. ****".format(self.output_dir))
                         # Set the best model to None
