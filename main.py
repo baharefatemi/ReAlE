@@ -12,7 +12,7 @@ from dataset import Dataset
 from tester import Tester
 import math
 
-DEFAULT_SAVE_DIR = 'output'
+DEFAULT_SAVE_DIR = '/knowledge_graphs/RealEv1/outputs'
 DEFAULT_MAX_ARITY = 6
 
 class Experiment:
@@ -29,7 +29,7 @@ class Experiment:
         self.restartable = args.restartable
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.kwargs = {"in_channels":args.in_channels,"out_channels":args.out_channels, "filt_h":args.filt_h, "filt_w":args.filt_w,
-                       "hidden_drop":args.hidden_drop, "stride":args.stride, "input_drop":args.input_drop}
+                       "hidden_drop":args.hidden_drop, "stride":args.stride, "input_drop":args.input_drop, "non_linearity": args.non_linearity, "ent_non_linearity": args.ent_non_linearity}
         self.hyperpars = {"model":args.model,"lr":args.lr,"emb_dim":args.emb_dim,"out_channels":args.out_channels,
                           "filt_w":args.filt_w,"nr":args.nr,"stride":args.stride, "hidden_drop":args.hidden_drop, "input_drop":args.input_drop}
 
@@ -81,6 +81,8 @@ class Experiment:
             model = HypE(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
         elif(model_name == "MTransH"):
             model = MTransH(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
+        elif(model_name == "RealEv1"):
+            model = RealEv1(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
         else:
             raise Exception("!!!! No mode called {} found !!!!".format(self.model_name))
         return model
@@ -123,7 +125,7 @@ class Experiment:
                         best_model_path = os.path.join(self.output_dir, "best_model.chkpnt")
                         self.best_model = self.get_model_from_name(self.model_name)
                         self.best_model.load_state_dict(torch.load(best_model_path))
-                        print("Loading the model {} with best MRR {}.".format(self.pretrained, self.best_model.best_mrr))
+                        "Loading the model {} with best MRR {}.".format(self.pretrained, self.best_model.best_mrr))
                     except:
                         print("*** NO BEST MODEL FOUND in {}. ****".format(self.output_dir))
                         # Set the best model to None
@@ -335,6 +337,8 @@ if __name__ == '__main__':
     parser.add_argument('-pretrained', type=str, default=None, help="A path to a trained model (.chkpnt file), which will be loaded if provided.")
     parser.add_argument('-output_dir', type=str, default=None, help="A path to the directory where the model will be saved and/or loaded from.")
     parser.add_argument('-restartable', action="store_true", help="If restartable is set, you must specify an output_dir")
+    parser.add_argument('-non_linearity', type=str, default="none", help="non-linearity function to apply for each step of RealE")
+    parser.add_argument('-ent_non_linearity', type=str, default="none", help="non-linearity to apply on entity embeddings")
     args = parser.parse_args()
 
     if args.restartable and (args.output_dir is None):
