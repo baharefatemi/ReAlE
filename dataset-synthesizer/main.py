@@ -20,34 +20,24 @@ class Synthesizer:
         self.number_rel_all = self.number_rel
         self.number_edge = args.number_edge
         self.max_arity = args.max_arity
-
-        self.p_rename_1 = args.p_rename_1
-        self.p_projection_1 = args.p_projection_1
-        self.p_union_1 = args.p_union_1
-        self.p_product_1 = args.p_product_1
-        self.p_selection_1 = args.p_selection_1
-        self.p_setd_1 = args.p_setd_1
-
-        self.p_rename_2 = args.p_rename_2
-        self.p_projection_2 = args.p_projection_2
-        self.p_union_2 = args.p_union_2
-        self.p_product_2 = args.p_product_2
-        self.p_selection_2 = args.p_selection_2
-        self.p_setd_2 = args.p_setd_2
-
+        self.min_arity = args.min_arity
+        self.p_rename = args.p_rename
+        self.p_projection = args.p_projection
+        self.p_union = args.p_union
+        self.p_product = args.p_product
+        self.p_selection = args.p_selection
+        self.p_setd = args.p_setd
 
         self.tuples_per_rel = defaultdict(lambda: [])
-
-        
+        self.degree_rel = defaultdict(lambda: 0)
+        self.rel_per_arity = defaultdict(lambda: [])
+        self.degree = {}
         self.output_dir = self.create_output_dir(args.output_dir)
         self.arities = self.create_arities()
+        
         self.init_tuples = self.create_init_graph()
-        self.add_tuples_per_rel(self.init_tuples)
+        self.apply_operations()
 
-        self.first_layer_operations()
-        self.number_rel_1 = self.number_rel_all 
-
-        self.second_layer_operations()
 
     def create_output_dir(self, output_dir):
         """
@@ -64,186 +54,78 @@ class Synthesizer:
         return output_dir
 
     def create_arities(self):
-        arities = []
+        arities = {}
         for rel in range(self.number_rel):
-            arity = randint(1, self.max_arity//2)
-            arities.append(arity)
+            arity = randint(self.min_arity, self.max_arity)
+            arities[rel] = arity
+            self.degree[rel] = 0
         return arities
 
+    def rel_per_arity_init(self):
+        for rel, arity in enumerate(self.arities):
+            self.rel_per_arity[self.arities[rel]].append(rel)
+
     def create_init_graph(self):
-        tuples = np.zeros((self.number_edge,  self.max_arity + 1))
         for edge in range(self.number_edge):
             rel = randint(0, self.number_rel-1)
             entities = []
             arity = self.arities[rel]
             for ar in range(arity):
                 entities.append(randint(1, self.number_ent))
-            tuples[edge][0] = rel
-            tuples[edge][1:arity+1] = entities
-        return tuples
+            self.tuples_per_rel[rel].append(entities)
+
+        self.rel_per_arity_init()
+
 
     def add_tuples_per_rel(self, tuples):
         for t in tuples:
-            # if t[0] not in self.tuples_per_rel:
-            #     self.tuples_per_rel[t[0]] = []
-            self.tuples_per_rel[t[0]].append(t[1:])
+            self.tuples_per_rel[t[0]].append(list(t[1:]))
 
-    def first_layer_operations(self):
-        self.rename_tuples_1 = np.zeros((0,  self.max_arity + 1))
-        self.projection_tuples_1 = np.zeros((0,  self.max_arity + 1))
-        self.union_tuples_1 = np.zeros((0,  self.max_arity + 1))
-        self.product_tuples_1 = np.zeros((0,  self.max_arity + 1))
-        self.selection_tuples_1 = np.zeros((0,  self.max_arity + 1))
-        self.setd_tuples_1 = np.zeros((0,  self.max_arity + 1))
+    def such_arity_exist(self, arity):
+        if len(self.rel_per_arity[arity]) > 1:
+            return True
+        return False
 
-        print("Applying first layer operations")
+    def apply_operations(self):
+        print("Applying operations")
 
-        self.create_rename_graph(1)
-        n_rename = self.number_rel_all - self.number_rel
-        print("number of rename rels", n_rename)
+        total_operations = 10
+        ind_operation = 0
 
-        self.create_projection_graph(1)
-        n_projection = self.number_rel_all - n_rename
-        print("number of projection rels", n_projection)
-        
-        self.create_union_graph(1)
-        n_union = self.number_rel_all - n_rename - n_projection
-        print("number of union rels", n_union)
+        while ind_operation < total_operations:
+            
+            op = random.choices(np.arange(1, 7), weights=[args.p_rename, args.p_projection, args.p_union, args.p_product, args.p_selection, args.p_setd])[0]
+            ind_operation += 1
+            # op = randint(3, 3)
+            rel1 = randint(0, self.number_rel_all - 1)
 
-        self.create_product_graph(1)
-        n_product = self.number_rel_all - n_rename - n_projection - n_union
-        print("number of product rels", n_product)
-
-        self.create_selection_graph(1)
-        n_selection = self.number_rel_all - n_rename - n_projection - n_union - n_product
-        print("number of selection rels", n_selection)
-
-        self.create_setd_graph(1)
-        n_setd = self.number_rel_all - n_rename - n_projection - n_union - n_product - n_selection
-        print("number of setd rels", n_setd)
-
-        self.add_tuples_per_rel(self.rename_tuples_1)
-        self.add_tuples_per_rel(self.projection_tuples_1)
-        self.add_tuples_per_rel(self.union_tuples_1)
-        self.add_tuples_per_rel(self.product_tuples_1)
-        self.add_tuples_per_rel(self.selection_tuples_1)
-        self.add_tuples_per_rel(self.setd_tuples_1)
-
-
-    def second_layer_operations(self):
-        self.rename_tuples_2 = np.zeros((0,  self.max_arity + 1))
-        self.projection_tuples_2 = np.zeros((0,  self.max_arity + 1))
-        self.union_tuples_2 = np.zeros((0,  self.max_arity + 1))
-        self.product_tuples_2 = np.zeros((0,  self.max_arity + 1))
-        self.selection_tuples_2 = np.zeros((0,  self.max_arity + 1))
-        self.setd_tuples_2 = np.zeros((0,  self.max_arity + 1))
-
-        print("Applying second layer operations")
-
-        self.create_rename_graph(2)
-        n_rename = self.number_rel_all - self.number_rel_1
-        print("number of rename rels", n_rename)
-
-        self.create_projection_graph(2)
-        n_projection = self.number_rel_all - self.number_rel_1 - n_rename
-        print("number of projection rels", n_projection)
-        
-        self.create_union_graph(2)
-        n_union = self.number_rel_all - self.number_rel_1 - n_rename - n_projection
-        print("number of union rels", n_union)
-
-        self.create_product_graph(2)
-        n_product = self.number_rel_all - self.number_rel_1 - n_rename - n_projection - n_union
-        print("number of product rels", n_product)
-
-        self.create_selection_graph(2)
-        n_selection = self.number_rel_all - self.number_rel_1 - n_rename - n_projection - n_union - n_product
-        print("number of selection rels", n_selection)
-
-        self.create_setd_graph(2)
-        n_setd = self.number_rel_all - self.number_rel_1 - n_rename - n_projection - n_union - n_product - n_selection
-        print("number of setd rels", n_setd)
-
-        self.add_tuples_per_rel(self.rename_tuples_2)
-        self.add_tuples_per_rel(self.projection_tuples_2)
-        self.add_tuples_per_rel(self.union_tuples_2)
-        self.add_tuples_per_rel(self.product_tuples_2)
-        self.add_tuples_per_rel(self.selection_tuples_2)
-        self.add_tuples_per_rel(self.setd_tuples_2)
-
-    def create_rename_graph(self, ind):
-        if ind == 1:
-            for rel in range(self.number_rel):
-                if random.random() < self.p_rename_1:
-                    self.rename_tuples_1 = np.concatenate((self.rename_tuples_1, self.rename(rel)))
-        elif ind == 2:
-            for rel in range(self.number_rel, self.number_rel_1):
-                if random.random() < self.p_rename_2:
-                    self.rename_tuples_2 = np.concatenate((self.rename_tuples_2, self.rename(rel)))
-
-    def create_projection_graph(self, ind):
-        if ind == 1:
-            for rel in range(self.number_rel):
-                if random.random() < self.p_projection_1:
-                    self.projection_tuples_1 = np.concatenate((self.projection_tuples_1, self.projection(rel)))
-        elif ind == 2:
-            for rel in range(self.number_rel, self.number_rel_1):
-                if random.random() < self.p_projection_2:
-                    self.projection_tuples_2 = np.concatenate((self.projection_tuples_2, self.projection(rel)))
-
-
-    def create_union_graph(self, ind):
-        if ind == 1:
-            for rel1 in range(self.number_rel):
-                for rel2 in range(self.number_rel):
-                    if rel1 != rel2 and self.arities[rel1] == self.arities[rel2]:
-                        if random.random() < self.p_union_1:
-                            self.union_tuples_1 = np.concatenate((self.union_tuples_1, self.union(rel1, rel2)))
-        elif ind == 2:
-            for rel1 in range(self.number_rel, self.number_rel_1):
-                for rel2 in range(self.number_rel):
-                    if rel1 != rel2 and self.arities[rel1] == self.arities[rel2]:
-                        if random.random() < self.p_union_2:
-                            self.union_tuples_2 = np.concatenate((self.union_tuples_2, self.union(rel1, rel2)))
-
-    def create_product_graph(self, ind):
-        if ind == 1:
-            for rel1 in range(self.number_rel):
-                for rel2 in range(self.number_rel):
-                    if rel1 != rel2 and (self.arities[rel1] + self.arities[rel2]) != self.max_arity:
-                        if random.random() < self.p_product_1:
-                            self.product_tuples_1 = np.concatenate((self.product_tuples_1, self.product(rel1, rel2)))
-        elif ind == 2:
-            for rel1 in range(self.number_rel, self.number_rel_1):
-                for rel2 in range(self.number_rel):
-                    if rel1 != rel2 and (self.arities[rel1] + self.arities[rel2]) != self.max_arity:
-                        if random.random() < self.p_product_2:
-                            self.product_tuples_2 = np.concatenate((self.product_tuples_1, self.product(rel1, rel2)))
-
-
-    def create_selection_graph(self, ind):
-        if ind == 1:
-            for rel in range(self.number_rel):
-                if random.random() < self.p_selection_1 and self.arities[rel] > 1:
-                    self.selection_tuples_1 = np.concatenate((self.selection_tuples_1, self.selection(rel)))
-        elif ind == 2:
-            for rel in range(self.number_rel, self.number_rel_1):
-                if random.random() < self.p_selection_2 and self.arities[rel] > 1:
-                    self.selection_tuples_2 = np.concatenate((self.selection_tuples_2, self.selection(rel)))
-
-    def create_setd_graph(self, ind):
-        if ind == 1:
-            for rel1 in range(self.number_rel):
-                for rel2 in range(self.number_rel):
-                    if rel1 != rel2 and self.arities[rel1] == self.arities[rel2]:
-                        if random.random() < self.p_setd_1:
-                            self.setd_tuples_1 = np.concatenate((self.setd_tuples_1, self.setd(rel1, rel2)))
-        elif ind == 2:
-            for rel1 in range(self.number_rel, self.number_rel_1):
-                for rel2 in range(self.number_rel):
-                    if rel1 != rel2 and self.arities[rel1] == self.arities[rel2]:
-                        if random.random() < self.p_setd_2:
-                            self.setd_tuples_2 = np.concatenate((self.setd_tuples_2, self.setd(rel1, rel2)))
+            if op == 1:
+                self.rename(rel1)
+            elif op == 2:
+                self.projection(rel1)
+            elif op == 3:
+                such_arity_exist = self.such_arity_exist(self.arities[rel1])
+                if such_arity_exist:
+                    rel2 = random.choice(self.rel_per_arity[self.arities[rel1]])
+                    while rel1 == rel2:
+                        rel2 = random.choice(self.rel_per_arity[self.arities[rel1]])
+                    self.union(rel1, rel2)
+            elif op == 4:
+                rel2 = randint(0, self.number_rel_all - 1)
+                while rel1 == rel2:
+                    rel2 = randint(0, self.number_rel_all - 1)
+                self.product(rel1, rel2)
+            elif op == 5:
+                while self.arities[rel1] < 2:
+                    rel1 = randint(0, self.number_rel_all - 1)
+                self.selection(rel1)
+            elif op == 6:
+                such_arity_exist = self.such_arity_exist(self.arities[rel1])
+                if such_arity_exist:
+                    rel2 = random.choice(self.rel_per_arity[self.arities[rel1]])
+                    while rel1 == rel2:
+                        rel2 = random.choice(self.rel_per_arity[self.arities[rel1]])
+                    self.setd(rel1, rel2)
 
 
     def create_new_permutation(self, arity):
@@ -253,11 +135,14 @@ class Synthesizer:
     def rename(self, rel):
         print("Rename operation for relation {}".format(str(rel)))
         curr_tuples = self.tuples_per_rel[rel]
-        rename_tuples = np.zeros((len(curr_tuples),  self.max_arity + 1))
+        
         new_permutation = self.create_new_permutation(self.arities[rel])
         new_rel = self.number_rel_all
+        self.degree[new_rel] = self.degree[rel] + 1
         print("New relation id {}".format(str(new_rel)))
-        self.arities.append(self.arities[rel])
+        
+        rename_tuples = np.zeros((len(curr_tuples),  self.arities[rel] + 1))
+        
         self.number_rel_all += 1
         for ind, t in enumerate(curr_tuples):
             entities = []
@@ -265,16 +150,19 @@ class Synthesizer:
                 entities.append(t[p])
             rename_tuples[ind][0] = new_rel
             rename_tuples[ind][1:self.arities[rel]+1] =  entities
-        return rename_tuples
+
+        self.sanity_check(rename_tuples, self.arities[rel])
+
 
     def projection(self, rel):
         print("Projection operation for relation {}".format(str(rel)))
         curr_tuples = self.tuples_per_rel[rel]
-        projection_tuples = np.zeros((len(curr_tuples),  self.max_arity + 1))
         new_rel_arity = randint(1, self.arities[rel])
+        projection_tuples = np.zeros((len(curr_tuples),  new_rel_arity + 1))
         new_rel = self.number_rel_all
+        self.degree[new_rel] = self.degree[rel] + 1
         print("New relation id {}".format(str(new_rel)))
-        self.arities.append(new_rel_arity)
+        
         self.number_rel_all += 1
         permutation = []
         while len(permutation) != new_rel_arity:
@@ -288,15 +176,16 @@ class Synthesizer:
             projection_tuples[ind][0] = new_rel
             projection_tuples[ind][1:new_rel_arity+1] =  entities
 
-        return projection_tuples
+        self.sanity_check(projection_tuples, new_rel_arity)
+
 
     def union(self, rel1, rel2):
         print("Union operation for relation {} and {}".format(str(rel1), str(rel2)))
         curr_tuples1 = self.tuples_per_rel[rel1]
         curr_tuples2 = self.tuples_per_rel[rel2]
-        union_tuples = np.zeros((len(curr_tuples1) + len(curr_tuples2),  self.max_arity + 1))
         new_rel = self.number_rel_all
-        self.arities.append(self.arities[rel1])
+        self.degree[new_rel] = max(self.degree[rel1], self.degree[rel2]) + 1
+        union_tuples = np.zeros((len(curr_tuples1) + len(curr_tuples2),  self.arities[rel1] + 1))
         print("New relation id {}".format(str(new_rel)))
         self.number_rel_all += 1
 
@@ -306,15 +195,18 @@ class Synthesizer:
         for ind, t in enumerate(curr_tuples2):
             union_tuples[len(curr_tuples1) + ind][1:] = t
             union_tuples[len(curr_tuples1) + ind][0] = new_rel
-        return union_tuples
+
+        self.sanity_check(union_tuples, self.arities[rel1])
+
 
     def product(self, rel1, rel2):
         print("Product operation for relation {} and {}".format(str(rel1), str(rel2)))
         curr_tuples1 = self.tuples_per_rel[rel1]
         curr_tuples2 = self.tuples_per_rel[rel2]
-        product_tuples = np.zeros((len(curr_tuples1) * len(curr_tuples2),  self.max_arity + 1))
         new_rel = self.number_rel_all
-        self.arities.append(self.arities[rel1] + self.arities[rel2])
+        self.degree[new_rel] = max(self.degree[rel1], self.degree[rel2]) + 1
+        product_tuples = np.zeros((len(curr_tuples1) * len(curr_tuples2),  self.arities[rel1] + self.arities[rel2] + 1))
+        
         print("New relation id {}".format(str(new_rel)))
         self.number_rel_all += 1
         for ind1, t1 in enumerate(curr_tuples1):
@@ -323,63 +215,80 @@ class Synthesizer:
                 product_tuples[(ind1 * len(curr_tuples2))+ ind2][1:self.arities[rel1]+1] = t1[0:self.arities[rel1]]
                 product_tuples[(ind1 * len(curr_tuples2))+ ind2][self.arities[rel1]+1:self.arities[rel1] + self.arities[rel2]+1] = t2[0:self.arities[rel2]]
 
-        return product_tuples
+        self.sanity_check(product_tuples, self.arities[rel1] + self.arities[rel2])
 
     def selection(self, rel):
         print("Selection operation for relation {}".format(str(rel)))
         curr_tuples = self.tuples_per_rel[rel]
-        selection_tuples = np.zeros((len(curr_tuples),  self.max_arity + 1))
         new_rel = self.number_rel_all
+        self.degree[new_rel] = self.degree[rel] + 1
         print("New relation id {}".format(str(new_rel)))
-        self.arities.append(self.arities[rel])
+        selection_tuples = np.zeros((len(curr_tuples),  self.arities[rel] + 1))
+        
         self.number_rel_all += 1
 
         selection_type = random.random()
-        if selection_type < 0.50:
+        if selection_type < 0.5:
             which_pos_1 = 0
             which_pos_2 = 0
             while which_pos_1 == which_pos_2:
-                which_pos_1 = randint(0, self.arities[rel]-1)
-                which_pos_2 = randint(0, self.arities[rel]-1)
+                which_pos_1 = randint(0, self.arities[rel] - 1)
+                which_pos_2 = randint(0, self.arities[rel] - 1)
             for ind, t in enumerate(curr_tuples):
                 if t[which_pos_1] == t[which_pos_2]:
                     selection_tuples[ind][0] = new_rel
                     selection_tuples[ind][1:] = t
         else:
-            which_pos_1 = randint(0, self.arities[rel])
+            which_pos_1 = randint(0, len(curr_tuples[0]) - 1)
             which_val = randint(0, self.number_ent - 1)
             for ind, t in enumerate(curr_tuples):
                 if t[which_pos_1] == which_val:
                     selection_tuples[ind][0] = new_rel
                     selection_tuples[ind][1:] = t
-        # remove one selected column
-        selection_tuples = self.remove_one_column(selection_tuples, which_pos_1)
-        return self.remove_padding(selection_tuples)
+
+        selection_tuples = self.remove_one_column(selection_tuples, which_pos_1 + 1)
+        selection_tuples = self.remove_padding(selection_tuples)
+
+        self.sanity_check(selection_tuples, self.arities[rel] - 1)
+
 
     def remove_one_column(self, tuples, col):
         tuples[:, col] = np.zeros(tuples.shape[0])
         tuples[:, col:] = np.roll(tuples[:,col:], -1, axis=1)
-        return tuples
+        return tuples[:, :-1]
 
     def setd(self, rel1, rel2):
         print("Setd operation for relation {} and {}".format(str(rel1), str(rel2)))
         curr_tuples1 = self.tuples_per_rel[rel1]
         curr_tuples2 = self.tuples_per_rel[rel2]
-        setd_tuples = np.zeros((len(curr_tuples1),  self.max_arity + 1))
+        
         new_rel = self.number_rel_all
+        self.degree[new_rel] = max(self.degree[rel1], self.degree[rel2]) + 1
         print("New relation id {}".format(str(new_rel)))
-        self.arities.append(self.arities[rel1])
+        
+        setd_tuples = np.zeros((len(curr_tuples1),  self.arities[rel1] + 1))
+        
         self.number_rel_all += 1
 
         for ind, t in enumerate(curr_tuples1):
-            # if not np.any(curr_tuples2 == np.array(t)):
             curr_tuples2 = np.array(curr_tuples2)
             if not(tuple(np.array(t)) in {tuple(v): True for v in curr_tuples2}):
                 setd_tuples[ind][1:] = t
                 setd_tuples[ind][0] = new_rel
  
-        return self.remove_padding(setd_tuples)
+        setd_tuples = self.remove_padding(setd_tuples)
+        self.sanity_check(setd_tuples, self.arities[rel1])
 
+        
+    def sanity_check(self, tuples, arity):
+        if len(tuples) > 0:
+            rel_id = tuples[0, 0]
+            self.add_tuples_per_rel(tuples)
+            self.arities[rel_id] = arity
+            self.rel_per_arity[arity].append(rel_id)
+        else:
+            self.number_rel_all -= 1
+            print("Empty relation is created and deleted")
 
     def remove_padding(self, tuples):
         all_zero = np.zeros(tuples.shape[1])
@@ -392,21 +301,16 @@ class Synthesizer:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-number_ent', type=int, default=10)
-    parser.add_argument('-number_rel', type=int, default=3)
+    parser.add_argument('-number_rel', type=int, default=5)
     parser.add_argument('-number_edge', type=int, default=20)
     parser.add_argument('-max_arity', type=int, default=5)
-    parser.add_argument('-p_rename_1', type=float, default=0.30)
-    parser.add_argument('-p_projection_1', type=float, default=0.30)
-    parser.add_argument('-p_union_1', type=float, default=0.10)
-    parser.add_argument('-p_product_1', type=float, default=0.10)
-    parser.add_argument('-p_selection_1', type=float, default=0.30)
-    parser.add_argument('-p_setd_1', type=float, default=0.10)
-    parser.add_argument('-p_rename_2', type=float, default=0.30)
-    parser.add_argument('-p_projection_2', type=float, default=0.30)
-    parser.add_argument('-p_union_2', type=float, default=0.10)
-    parser.add_argument('-p_product_2', type=float, default=0.10)
-    parser.add_argument('-p_selection_2', type=float, default=0.30)
-    parser.add_argument('-p_setd_2', type=float, default=0.10)
+    parser.add_argument('-min_arity', type=int, default=2)
+    parser.add_argument('-p_rename', type=float, default=0.30)
+    parser.add_argument('-p_projection', type=float, default=0.30)
+    parser.add_argument('-p_union', type=float, default=0.10)
+    parser.add_argument('-p_product', type=float, default=0.10)
+    parser.add_argument('-p_selection', type=float, default=0.30)
+    parser.add_argument('-p_setd', type=float, default=0.10)
     parser.add_argument('-output_dir', type=str, default=None, help="A path to the directory where the dataset will be saved and/or loaded from.")
     parser.add_argument('-dataset_name', type=str, default="small")
     args = parser.parse_args()
