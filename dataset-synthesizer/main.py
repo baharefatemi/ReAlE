@@ -95,14 +95,15 @@ class Synthesizer:
 
     def apply_operations(self):
         self.operations_log.write("Applying operations" + '\n')
-
+        print("Applying operations")
         ind_operation = 0
 
         while ind_operation < args.number_of_ops:
-            
+            print("op", ind_operation)
+
             op = random.choices(np.arange(1, 7), weights=[args.p_rename, args.p_projection, args.p_union, args.p_product, args.p_selection, args.p_setd])[0]
             ind_operation += 1
-            # op = randint(3, 3)
+
             rel1 = randint(0, self.number_rel_all - 1)
 
             if op == 1:
@@ -141,6 +142,7 @@ class Synthesizer:
 
     def rename(self, rel):
         self.operations_log.write("Rename operation for relation {}".format(str(rel)) + '\n')
+        print("Rename operation for relation {}".format(str(rel)))
         curr_tuples = self.tuples_per_rel[rel]
         
         new_permutation = self.create_new_permutation(self.arities[rel])
@@ -148,7 +150,7 @@ class Synthesizer:
         self.degree[new_rel] = self.degree[rel] + 1
         self.ops_on_rel[new_rel] = 'rename'
         self.operations_log.write("New relation id {}".format(str(new_rel)) + '\n')
-        
+        print("New relation id {}".format(str(new_rel)))
         rename_tuples = np.zeros((len(curr_tuples),  self.arities[rel] + 1))
         
         self.number_rel_all += 1
@@ -164,6 +166,7 @@ class Synthesizer:
 
     def projection(self, rel):
         self.operations_log.write("Projection operation for relation {}".format(str(rel)) + '\n')
+        print("Projection operation for relation {}".format(str(rel)))
         curr_tuples = self.tuples_per_rel[rel]
         new_rel_arity = randint(1, self.arities[rel])
         projection_tuples = np.zeros((len(curr_tuples),  new_rel_arity + 1))
@@ -171,7 +174,7 @@ class Synthesizer:
         self.degree[new_rel] = self.degree[rel] + 1
         self.ops_on_rel[new_rel] = 'project'
         self.operations_log.write("New relation id {}".format(str(new_rel)) + '\n')
-        
+        print("New relation id {}".format(str(new_rel)))
         self.number_rel_all += 1
         permutation = []
         while len(permutation) != new_rel_arity:
@@ -190,6 +193,7 @@ class Synthesizer:
 
     def union(self, rel1, rel2):
         self.operations_log.write("Union operation for relation {} and {}".format(str(rel1), str(rel2)) + '\n')
+        print("Union operation for relation {} and {}".format(str(rel1), str(rel2)))
         curr_tuples1 = self.tuples_per_rel[rel1]
         curr_tuples2 = self.tuples_per_rel[rel2]
         new_rel = self.number_rel_all
@@ -197,6 +201,7 @@ class Synthesizer:
         self.ops_on_rel[new_rel] = 'union'
         union_tuples = np.zeros((len(curr_tuples1) + len(curr_tuples2),  self.arities[rel1] + 1))
         self.operations_log.write("New relation id {}".format(str(new_rel)) + '\n')
+        print("New relation id {}".format(str(new_rel)))
         self.number_rel_all += 1
 
         for ind, t in enumerate(curr_tuples1):
@@ -210,31 +215,36 @@ class Synthesizer:
 
 
     def product(self, rel1, rel2):
-        self.operations_log.write("Product operation for relation {} and {}".format(str(rel1), str(rel2)) + '\n')
-        curr_tuples1 = self.tuples_per_rel[rel1]
-        curr_tuples2 = self.tuples_per_rel[rel2]
-        new_rel = self.number_rel_all
-        self.degree[new_rel] = max(self.degree[rel1], self.degree[rel2]) + 1
-        self.ops_on_rel[new_rel] = 'product'
-        product_tuples = np.zeros((len(curr_tuples1) * len(curr_tuples2),  self.arities[rel1] + self.arities[rel2] + 1))
-        
-        self.operations_log.write("New relation id {}".format(str(new_rel)) + '\n')
-        self.number_rel_all += 1
-        for ind1, t1 in enumerate(curr_tuples1):
-            for ind2, t2 in enumerate(curr_tuples2):
-                product_tuples[(ind1 * len(curr_tuples2))+ ind2][0] = new_rel
-                product_tuples[(ind1 * len(curr_tuples2))+ ind2][1:self.arities[rel1]+1] = t1[0:self.arities[rel1]]
-                product_tuples[(ind1 * len(curr_tuples2))+ ind2][self.arities[rel1]+1:self.arities[rel1] + self.arities[rel2]+1] = t2[0:self.arities[rel2]]
+        if self.arities[rel1] + self.arities[rel2] < self.max_arity:
+            self.operations_log.write("Product operation for relation {} and {}".format(str(rel1), str(rel2)) + '\n')
+            print("Product operation for relation {} and {}".format(str(rel1), str(rel2)))
+            curr_tuples1 = self.tuples_per_rel[rel1]
+            curr_tuples2 = self.tuples_per_rel[rel2]
+            new_rel = self.number_rel_all
+            self.degree[new_rel] = max(self.degree[rel1], self.degree[rel2]) + 1
+            self.ops_on_rel[new_rel] = 'product'
+            product_tuples = np.zeros((len(curr_tuples1) * len(curr_tuples2),  self.arities[rel1] + self.arities[rel2] + 1))
+            
+            self.operations_log.write("New relation id {}".format(str(new_rel)) + '\n')
+            print("New relation id {}".format(str(new_rel)))
+            self.number_rel_all += 1
+            for ind1, t1 in enumerate(curr_tuples1):
+                for ind2, t2 in enumerate(curr_tuples2):
+                    product_tuples[(ind1 * len(curr_tuples2))+ ind2][0] = new_rel
+                    product_tuples[(ind1 * len(curr_tuples2))+ ind2][1:self.arities[rel1]+1] = t1[0:self.arities[rel1]]
+                    product_tuples[(ind1 * len(curr_tuples2))+ ind2][self.arities[rel1]+1:self.arities[rel1] + self.arities[rel2]+1] = t2[0:self.arities[rel2]]
 
-        self.sanity_check(product_tuples, self.arities[rel1] + self.arities[rel2])
+            self.sanity_check(product_tuples, self.arities[rel1] + self.arities[rel2])
 
     def selection(self, rel):
         self.operations_log.write("Selection operation for relation {}".format(str(rel)) + '\n')
+        print("Selection operation for relation {}".format(str(rel)))
         curr_tuples = self.tuples_per_rel[rel]
         new_rel = self.number_rel_all
         self.degree[new_rel] = self.degree[rel] + 1
         self.ops_on_rel[new_rel] = 'select'
         self.operations_log.write("New relation id {}".format(str(new_rel)) + '\n')
+        print("New relation id {}".format(str(new_rel)))
         selection_tuples = np.zeros((len(curr_tuples),  self.arities[rel] + 1))
         
         self.number_rel_all += 1
@@ -271,6 +281,7 @@ class Synthesizer:
 
     def setd(self, rel1, rel2):
         self.operations_log.write("Setd operation for relation {} and {}".format(str(rel1), str(rel2)) + '\n')
+        print("Setd operation for relation {} and {}".format(str(rel1), str(rel2)) )
         curr_tuples1 = self.tuples_per_rel[rel1]
         curr_tuples2 = self.tuples_per_rel[rel2]
         
@@ -278,7 +289,7 @@ class Synthesizer:
         self.degree[new_rel] = max(self.degree[rel1], self.degree[rel2]) + 1
         self.ops_on_rel[new_rel] = 'setd'
         self.operations_log.write("New relation id {}".format(str(new_rel)) + '\n')
-        
+        print("New relation id {}".format(str(new_rel)))
         setd_tuples = np.zeros((len(curr_tuples1),  self.arities[rel1] + 1))
         
         self.number_rel_all += 1
@@ -302,6 +313,7 @@ class Synthesizer:
         else:
             self.number_rel_all -= 1
             self.operations_log.write("Empty relation is created and deleted" + '\n')
+            print("Empty relation is created and deleted")
 
     def remove_padding(self, tuples):
         all_zero = np.zeros(tuples.shape[1])
@@ -315,10 +327,10 @@ class Synthesizer:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-number_ent', type=int, default=15000)
-    parser.add_argument('-number_rel', type=int, default=1000)
-    parser.add_argument('-number_edge', type=int, default=500000)
-    parser.add_argument('-max_arity', type=int, default=6)
+    parser.add_argument('-number_ent', type=int, default=100)
+    parser.add_argument('-number_rel', type=int, default=20)
+    parser.add_argument('-number_edge', type=int, default=50000)
+    parser.add_argument('-max_arity', type=int, default=3)
     parser.add_argument('-min_arity', type=int, default=2)
     parser.add_argument('-p_rename', type=float, default=0.10)
     parser.add_argument('-p_projection', type=float, default=0.10)
@@ -326,9 +338,9 @@ if __name__ == '__main__':
     parser.add_argument('-p_product', type=float, default=0.10)
     parser.add_argument('-p_selection', type=float, default=0.10)
     parser.add_argument('-p_setd', type=float, default=0.10)
-    parser.add_argument('-number_of_ops', type=int, default=500000)
+    parser.add_argument('-number_of_ops', type=int, default=50000)
     parser.add_argument('-output_dir', type=str, default=None, help="A path to the directory where the dataset will be saved and/or loaded from.")
-    parser.add_argument('-dataset_name', type=str, default="Medium")
+    parser.add_argument('-dataset_name', type=str, default="Small")
     parser.add_argument('-sub_sampling_p', type=float, default=0.50)
     parser.add_argument('-valid_p', type=float, default=0.10)
     parser.add_argument('-test_p', type=float, default=0.10)
