@@ -11,6 +11,7 @@ from torch.nn import functional as F, Parameter
 from torch.nn.init import xavier_normal_, xavier_uniform_
 import time
 import math
+import itertools
 
 class BaseClass(torch.nn.Module):
     def __init__(self):
@@ -224,9 +225,9 @@ class MTransH(BaseClass):
         self.hidden_drop = torch.nn.Dropout(self.hidden_drop_rate)
 
     def init(self):
-        self.E.weight.data[0] = torch.ones(self.emb_dim)
-        self.R1.weight.data[0] = torch.ones(self.emb_dim)
-        self.R2.weight.data[0] = torch.ones(self.emb_dim)
+        self.E.weight.data[0] = torch.zeros(self.emb_dim)
+        self.R1.weight.data[0] = torch.zeros(self.emb_dim)
+        self.R2.weight.data[0] = torch.zeros(self.emb_dim)
         xavier_normal_(self.E.weight.data[1:])
         xavier_normal_(self.R1.weight.data[1:])
         xavier_normal_(self.R2.weight.data[1:])
@@ -300,8 +301,15 @@ class RealEv1(BaseClass):
             return torch.exp(e)
         elif non_linearity == "lrelu":
             return torch.nn.functional.leaky_relu(e)
+        elif non_linearity == "srelu":
+            return self.special_relu(e)
         elif non_linearity == "none":
             return e
+
+    def special_relu(self, e):
+        e[e > 1.0] = 1.0
+        e[e < 0.0] = 0.0
+        return e
 
     def forward(self, r_idx, e1_idx, e2_idx, e3_idx, e4_idx, e5_idx, e6_idx):
 
@@ -323,7 +331,252 @@ class RealEv1(BaseClass):
 
         return results
 
+class RealEv3(BaseClass):
+    def __init__(self, dataset, emb_dim, **kwargs):
+        super(RealEv3, self).__init__()
+        self.emb_dim = emb_dim
+        self.max_arity = 6
+        self.hidden_drop_rate = kwargs["hidden_drop"]
+        self.hidden_drop = torch.nn.Dropout(self.hidden_drop_rate)
+        self.w = kwargs["filt_w"]
+        self.b = self.emb_dim // self.w
+        self.non_linearity = kwargs["non_linearity"]
+        self.smart_initialization = kwargs["smart_initialization"]
+        self.ent_non_linearity = kwargs["ent_non_linearity"]
+        self.reg = kwargs["reg"]
+        self.E = torch.nn.Embedding(dataset.num_ent(), emb_dim, padding_idx=0)
+        self.dataset = dataset
+        self.R = torch.nn.Embedding(dataset.num_rel(), emb_dim * self.max_arity, padding_idx=0)
+        self.R_bias = torch.nn.Embedding(dataset.num_rel(), self.b, padding_idx=0)
+
+        self.R_weights_0 = torch.nn.Embedding(dataset.num_rel(), 1, padding_idx=0)
+        self.R_weights_1 = torch.nn.Embedding(dataset.num_rel(), 1, padding_idx=0)
+        self.R_weights_2 = torch.nn.Embedding(dataset.num_rel(), 1, padding_idx=0)
+        self.R_weights_3 = torch.nn.Embedding(dataset.num_rel(), 1, padding_idx=0)
+        self.R_weights_4 = torch.nn.Embedding(dataset.num_rel(), 1, padding_idx=0)
+        self.R_weights_5 = torch.nn.Embedding(dataset.num_rel(), 1, padding_idx=0)
+
+        self.R_weights_0.weight.requires_grad = False
+        self.R_weights_1.weight.requires_grad = False
+        self.R_weights_2.weight.requires_grad = False
+        self.R_weights_3.weight.requires_grad = False
+        self.R_weights_4.weight.requires_grad = False
+        self.R_weights_5.weight.requires_grad = False
+
+    def init(self):
+        self.E.weight.data[0] = torch.zeros(self.emb_dim)
+        xavier_normal_(self.E.weight.data[1:])
+        xavier_normal_(self.R.weight.data)
+        xavier_normal_(self.R_bias.weight.data)
+        if self.smart_initialization:
+            self.R_weights_0.weight.data = torch.zeros(self.dataset.num_rel(), 1).cuda()
+            self.R_weights_1.weight.data = torch.zeros(self.dataset.num_rel(), 1).cuda()
+            self.R_weights_2.weight.data = torch.zeros(self.dataset.num_rel(), 1).cuda()
+            self.R_weights_3.weight.data = torch.zeros(self.dataset.num_rel(), 1).cuda()
+            self.R_weights_4.weight.data = torch.zeros(self.dataset.num_rel(), 1).cuda()
+            self.R_weights_5.weight.data = torch.ones(self.dataset.num_rel(), 1).cuda()
+
+        else:
+            xavier_normal_(self.R_weights_0.weight.data)
+            xavier_normal_(self.R_weights_1.weight.data)
+            xavier_normal_(self.R_weights_2.weight.data)
+            xavier_normal_(self.R_weights_3.weight.data)
+            xavier_normal_(self.R_weights_4.weight.data)
+            xavier_normal_(self.R_weights_5.weight.data)
+
+    def loss(self):
+        return self.reg * torch.sum(torch.abs(self.R_weights_0.weight) + torch.abs(self.R_weights_1.weight) + torch.abs(self.R_weights_2.weight) + torch.abs(self.R_weights_3.weight) + torch.abs(self.R_weights_4.weight) + torch.abs(self.R_weights_5.weight))
+
+    def apply_non_linearity(self, non_linearity, e):
+        if non_linearity == "relu":
+            return torch.relu(e)
+        elif non_linearity == "tanh":
+            return torch.tanh(e)
+        elif non_linearity == "sigmoid":
+            return torch.sigmoid(e)
+        elif non_linearity == "exp":
+            return torch.exp(e)
+        elif non_linearity == "lrelu":
+            return torch.nn.functional.leaky_relu(e)
+        elif non_linearity == "srelu":
+            return self.special_relu(e)
+        elif non_linearity == "none":
+            return e
+
+    def special_relu(self, e):
+        e[e > 1.0] = 1.0
+        e[e < 0.0] = 0.0
+        return e
+
+    def forward_(self, r_idx, e1_idx, e2_idx, e3_idx, e4_idx, e5_idx, e6_idx):
+
+        r = self.R(r_idx).reshape(-1, self.max_arity, self.emb_dim)
+        r_bias = self.R_bias(r_idx)
+
+        e1 = self.E(e1_idx)
+        e2 = self.E(e2_idx)
+        e3 = self.E(e3_idx)
+        e4 = self.E(e4_idx)
+        e5 = self.E(e5_idx)
+        e6 = self.E(e6_idx)
+
+        entity_embs = torch.stack((e1, e2, e3, e4, e5, e6), dim=1)
+        entity_embs = self.apply_non_linearity(self.ent_non_linearity, entity_embs)
+        r = r.reshape(r.shape[0], r.shape[1], self.w, self.b)
+        entity_embs = entity_embs.reshape(entity_embs.shape[0], entity_embs.shape[1], self.w, self.b)
+        results = torch.sum(self.apply_non_linearity(self.non_linearity, torch.sum(r * entity_embs , (2, 1)) + r_bias), dim=1)
+        return results
+
+    def forward(self, r_idx, e1_idx, e2_idx, e3_idx, e4_idx, e5_idx, e6_idx):
+        zeros = torch.zeros(e1_idx.shape).long().cuda()
+        zeros.requires_grad = False
+
+        r = torch.cat((r_idx, r_idx, r_idx, r_idx, r_idx, r_idx, r_idx, r_idx, r_idx, r_idx, r_idx), 0)
+        e1 = torch.cat((e1_idx, zeros, e1_idx, zeros, e1_idx, zeros,  e1_idx, zeros, e1_idx, zeros, e1_idx), 0)
+        e2 = torch.cat((zeros, e2_idx, e2_idx, zeros, e2_idx, zeros, e2_idx, zeros, e2_idx, zeros, e2_idx), 0)
+        e3 = torch.cat((zeros, e3_idx, zeros, e3_idx, e3_idx, zeros, e3_idx, zeros, e3_idx, zeros, e3_idx), 0)
+        e4 = torch.cat((zeros, e4_idx, zeros, e4_idx, zeros, e4_idx, e4_idx, zeros, e4_idx, zeros, e4_idx), 0)
+        e5 = torch.cat((zeros, e5_idx, zeros, e5_idx, zeros, e5_idx, zeros, e5_idx, e5_idx, zeros, e5_idx), 0)
+        e6 = torch.cat((zeros, e6_idx, zeros, e6_idx, zeros, e6_idx, zeros, e6_idx, zeros, e6_idx, e6_idx), 0)
+
+        scores = self.forward_(r, e1, e2, e3, e4, e5, e6).reshape(11, -1).transpose(0, 1)
+
+        output = self.R_weights_0(r_idx).squeeze() * scores[:, 0] * scores[:, 1] + self.R_weights_1(r_idx).squeeze() * scores[:, 2] * scores[:, 3] \
+            + self.R_weights_2(r_idx).squeeze() * scores[:, 4] * scores[:, 5] + self.R_weights_3(r_idx).squeeze() * scores[:, 6] * scores[:, 7] \
+            + self.R_weights_4(r_idx).squeeze() * scores[:, 8] * scores[:, 9] + self.R_weights_5(r_idx).squeeze() * scores[:, 10]
+
+        return output
+        # r = torch.cat([r_idx, r_idx], 0).cuda()
+        # e1 = torch.cat([e1_idx, e1_idx], 0).cuda()
+        # e2 = torch.cat([e2_idx, e2_idx], 0).cuda()
+        # e3 = torch.cat([e3_idx, e3_idx], 0).cuda()
+        # e4 = torch.cat([e4_idx, e4_idx], 0).cuda()
+        # e5 = torch.cat([e5_idx, e5_idx], 0).cuda()
+        # e6 = torch.cat([e6_idx, e6_idx], 0).cuda()
+
+        # scores = self.forward_(r, e1, e2, e3, e4, e5, e6).reshape(2, -1).transpose(0, 1)
+        # # print(scores.reshape(2, -1).transpose(0, 1))
+        # # exit()
+        # # print(scores)
+        # return scores[:,0]
+
+        # r = r_idx
+        # e1 = e1_idx
+        # e2 = e2_idx
+        # e3 = e3_idx
+        # e4 = e4_idx
+        # e5 = e5_idx
+        # e6 = e6_idx
+
+        # scores0 = self.forward_(r, e1, e2, e3, e4, e5, e6)
+
+        # scores1 = self.forward_(r, e1, e2, e3, e4, e5, e6)
+
+        # print(scores0)
+        # print(scores1)
+        # # exit()
+        # return scores1
+
+        # scores = self.R_weights_0(r_idx).squeeze() * self.forward_(r_idx, e1_idx, zeros, zeros, zeros, zeros, zeros) * self.forward_(r_idx, zeros, e2_idx, e3_idx, e4_idx, e5_idx, e6_idx)  \
+        #         + self.R_weights_1(r_idx).squeeze() * self.forward_(r_idx, e1_idx, e2_idx, zeros, zeros, zeros, zeros) * self.forward_(r_idx, zeros, zeros, e3_idx, e4_idx, e5_idx, e6_idx) \
+        #         + self.R_weights_2(r_idx).squeeze() * self.forward_(r_idx, e1_idx, e2_idx, e3_idx, zeros, zeros, zeros) * self.forward_(r_idx, zeros, zeros, zeros, e4_idx, e5_idx, e6_idx) \
+        #         + self.R_weights_3(r_idx).squeeze() * self.forward_(r_idx, e1_idx, e2_idx, e3_idx, e4_idx, zeros, zeros) * self.forward_(r_idx, zeros, zeros, zeros, zeros, e5_idx, e6_idx) \
+        #         + self.R_weights_4(r_idx).squeeze() * self.forward_(r_idx, e1_idx, e2_idx, e3_idx, e4_idx, e5_idx, zeros) * self.forward_(r_idx, zeros, zeros, zeros, zeros, zeros, e6_idx) \
+        #         + self.R_weights_5(r_idx).squeeze() * self.forward_(r_idx, e1_idx, e2_idx, e3_idx, e4_idx, e5_idx, e6_idx)
+
+
+        # for i in range(1, self.max_arity + 1):
+        #     combinations = list(itertools.combinations([1, 2, 3, 4, 5, 6], i))
+        #     for comb in combinations:
+        #         e1_idx_ = e1_idx if (1 in comb) else zeros
+        #         e2_idx_ = e2_idx if (2 in comb) else zeros
+        #         e3_idx_ = e3_idx if (3 in comb) else zeros
+        #         e4_idx_ = e4_idx if (4 in comb) else zeros
+        #         e5_idx_ = e5_idx if (5 in comb) else zeros
+        #         e6_idx_ = e6_idx if (6 in comb) else zeros
+        #         tuples.append((e1_idx_, e2_idx_, e3_idx_, e4_idx_, e5_idx_, e6_idx_))
+
+        # scores = []
+        # for t in tuples:
+        #         s = self.forward_(r_idx, t[0], t[1], t[2], t[3], t[4], t[5])
+        #         scores.append(s)
+
+        
+
+        # output = s[0] * s[1] * s[2] * s[3] * s[4] * s[5]
 
 
 
+        # output += s[58] * s[5] + s[59] * s[4] + s[60] * s[3] + s[61] * s[2] + s[62] * s[1]
+        # output += s[-1]
+        # print(len(output))
+        # print(e1_idx.shape)
+        # exit()
+         # + self.R_w2(r_idx).squeeze() * self.forward_(r_idx, zeros, e2_idx) + self.R_w3(r_idx).squeeze() * self.forward_(r_idx, e1_idx, e2_idx)
 
+
+        
+
+class GETD(BaseClass):
+    def __init__(self, dataset, emb_dim, **kwargs):
+        super(GETD, self).__init__()
+        self.emb_dim = emb_dim
+        self.max_arity = 6
+        # k has to be the max_arity + 1
+        self.k = self.max_arity + 1
+        self.ranks = kwargs["filt_w"]
+        self.ni = emb_dim
+
+        self.hidden_drop_rate = kwargs["hidden_drop"]
+        self.hidden_drop = torch.nn.Dropout(self.hidden_drop_rate)
+        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+
+        self.E = torch.nn.Embedding(dataset.num_ent(), emb_dim, padding_idx=0)
+        self.R = torch.nn.Embedding(dataset.num_rel(), emb_dim, padding_idx=0)
+        self.Zlist = torch.nn.ParameterList([torch.nn.Parameter(torch.tensor(np.random.uniform(-1e-1, 1e-1, (self.ranks, self.ni, self.ranks)), dtype=torch.float, requires_grad=True).to(self.device)) for _ in range(self.k)])
+
+        self.bne = torch.nn.BatchNorm1d(self.emb_dim)
+        self.bnr = torch.nn.BatchNorm1d(self.emb_dim)
+        self.bnw = torch.nn.BatchNorm1d(self.emb_dim)
+
+        self.input_dropout = torch.nn.Dropout(0.46694419227220374)
+        self.hidden_dropout = torch.nn.Dropout(0.18148844341064124)
+
+    def init(self):
+        self.E.weight.data[0] = torch.zeros(self.emb_dim)
+        xavier_normal_(self.E.weight.data[1:])
+        xavier_normal_(self.R.weight.data)
+
+
+    def forward(self, r_idx, e1_idx, e2_idx, e3_idx, e4_idx, e5_idx, e6_idx, W=None):
+        de = self.E.weight.shape[1]
+        dr = self.R.weight.shape[1]
+
+        if W is None:
+
+            k = len(self.Zlist)
+            Zlist = [Z for Z in self.Zlist]
+            if k == 4:
+                W0 = torch.einsum('aib,bjc,ckd,dla->ijkl', Zlist)
+            elif k == 5:
+                W0 = torch.einsum('aib,bjc,ckd,dle,ema->ijklm', Zlist)
+            elif k == 6:
+                W0 = torch.einsum('aib,bjc,ckd,dle,emf, fna->ijklmn', Zlist)
+            elif k == 7:
+                W0 = torch.einsum('aib,bjc,ckd,dle,emf,fng,goa->ijklmno', Zlist)
+
+            W = W0.view(dr, de, de, de, de, de, de)
+
+        r = self.bnr(self.R(r_idx))
+        W_mat = torch.mm(r, W.view(r.size(1), -1))
+
+        
+        W_mat = W_mat.view(-1, de, de, de, de, de, de)
+        e1, e2, e3, e4, e5, e6 = self.E(e1_idx), self.E(e2_idx), self.E(e3_idx), self.E(e4_idx), self.E(e5_idx), self.E(e6_idx),
+        e1, e2, e3, e4, e5, e6 = self.bne(e1), self.bne(e2), self.bne(e3), self.bne(e4), self.bne(e5), self.bne(e6)
+        e1, e2, e3, e4, e5, e6 = self.input_dropout(e1), self.input_dropout(e2), self.input_dropout(e3), self.input_dropout(e4), self.input_dropout(e5), self.input_dropout(e6)
+
+        W_mat1 = torch.einsum('ijklmno,ij,ik,il,im,in,io->i', W_mat, e1, e2, e3, e4, e5, e6)
+        pred = self.hidden_dropout(W_mat1)
+        return pred

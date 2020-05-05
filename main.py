@@ -12,7 +12,7 @@ from dataset import Dataset
 from tester import Tester
 import math
 
-DEFAULT_SAVE_DIR = '/knowledge_graphs/RealEv1/outputs'
+# DEFAULT_SAVE_DIR = '/knowledge_graphs/RealEv1/outputs'
 DEFAULT_MAX_ARITY = 6
 
 class Experiment:
@@ -29,7 +29,7 @@ class Experiment:
         self.restartable = args.restartable
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.kwargs = {"in_channels":args.in_channels,"out_channels":args.out_channels, "filt_h":args.filt_h, "filt_w":args.filt_w,
-                       "hidden_drop":args.hidden_drop, "stride":args.stride, "input_drop":args.input_drop, "non_linearity": args.non_linearity, "ent_non_linearity": args.ent_non_linearity}
+                       "hidden_drop":args.hidden_drop, "stride":args.stride, "input_drop":args.input_drop, "non_linearity": args.non_linearity, "ent_non_linearity": args.ent_non_linearity, "reg":args.reg, "smart_initialization": args.smart_initialization}
         self.hyperpars = {"model":args.model,"lr":args.lr,"emb_dim":args.emb_dim,"out_channels":args.out_channels,
                           "filt_w":args.filt_w,"nr":args.nr,"stride":args.stride, "hidden_drop":args.hidden_drop, "input_drop":args.input_drop}
 
@@ -83,6 +83,10 @@ class Experiment:
             model = MTransH(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
         elif(model_name == "RealEv1"):
             model = RealEv1(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
+        elif(model_name == "RealEv3"):
+            model = RealEv3(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
+        elif(model_name == "GETD"):
+            model = GETD(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
         else:
             raise Exception("!!!! No mode called {} found !!!!".format(self.model_name))
         return model
@@ -190,8 +194,10 @@ class Experiment:
         print("Training the {} model...".format(self.model_name))
         print("Number of training data points: {}".format(len(self.dataset.data["train"])))
 
-
         loss_layer = torch.nn.CrossEntropyLoss()
+
+        W = None
+        
         print("Starting training at iteration ... {}".format(self.model.cur_itr.data))
         for it in range(self.model.cur_itr.data, self.num_iterations+1):
             last_batch = False
@@ -207,6 +213,8 @@ class Experiment:
                     predictions = self.model.forward(r, e1, e2, e3, e4, e5, e6, ms, bs)
                 elif(self.model_name == "MTransH"):
                     predictions = self.model.forward(r, e1, e2, e3, e4, e5, e6, ms)
+                elif(self.model_name == "RealEv3"):
+                    predictions = self.model.forward(r, e1, e2, e3, e4, e5, e6) + self.model.loss()
                 else:
                     predictions = self.model.forward(r, e1, e2, e3, e4, e5, e6)
                 predictions = self.padd_and_decompose(targets, predictions, self.neg_ratio*self.max_arity)
@@ -339,6 +347,9 @@ if __name__ == '__main__':
     parser.add_argument('-restartable', action="store_true", help="If restartable is set, you must specify an output_dir")
     parser.add_argument('-non_linearity', type=str, default="none", help="non-linearity function to apply for each step of RealE")
     parser.add_argument('-ent_non_linearity', type=str, default="none", help="non-linearity to apply on entity embeddings")
+    parser.add_argument('-reg', type=float, default=0.0)
+    parser.add_argument('-smart_initialization', action="store_true")
+
     args = parser.parse_args()
 
     if args.restartable and (args.output_dir is None):

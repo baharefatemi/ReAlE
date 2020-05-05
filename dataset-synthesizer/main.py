@@ -9,6 +9,9 @@ import numpy as np
 from itertools import permutations
 from collections import defaultdict
 from subsampler import Subsampler
+import json
+import sys
+
 DEFAULT_SAVE_DIR = './outputs'
 seed(3)
 
@@ -31,7 +34,6 @@ class Synthesizer:
 
 
         self.tuples_per_rel = defaultdict(lambda: [])
-        self.degree_rel = defaultdict(lambda: 0)
         self.rel_per_arity = defaultdict(lambda: [])
         self.degree = {}
         self.ops_on_rel = {}
@@ -39,12 +41,16 @@ class Synthesizer:
         self.arities = self.create_arities()
         
         self.operations_log = open(os.path.join(self.output_dir, 'ops-logs.txt'), 'w')
+        self.ground_truth_log = open(os.path.join(self.output_dir, 'ground-truth.txt'), 'w')
         print("ground truth generator in progress")
         self.init_tuples = self.create_init_graph()
+
         print("applying operations in progress")
         self.apply_operations()
 
-        
+        print("max degree", max(self.degree.values()))
+
+        # self.load_tuples_per_rel()
 
     def create_output_dir(self, output_dir):
         """
@@ -83,10 +89,17 @@ class Synthesizer:
 
         self.rel_per_arity_init()
 
+        for r in self.tuples_per_rel:
+            self.tuples_per_rel[r] = np.array(self.tuples_per_rel[r])
 
-    def add_tuples_per_rel(self, tuples):
-        for t in tuples:
-            self.tuples_per_rel[t[0]].append(list(t[1:]))
+    def add_tuples_per_rel(self, tuples, rel):
+
+        # print("1", "%d bytes" % (sys.getsizeof(self.tuples_per_rel)))
+        # print("2", "%d bytes" % (sys.getsizeof(np.array(tuples).astype(int))))
+        self.tuples_per_rel[rel] = np.array(tuples).astype(int)
+        # print(len(self.tuples_per_rel))
+        # for t in tuples:
+        #     self.tuples_per_rel[rel].append(np.array(t))
 
     def such_arity_exist(self, arity):
         if len(self.rel_per_arity[arity]) > 1:
@@ -103,7 +116,6 @@ class Synthesizer:
 
             op = random.choices(np.arange(1, 7), weights=[args.p_rename, args.p_projection, args.p_union, args.p_product, args.p_selection, args.p_setd])[0]
             ind_operation += 1
-
             rel1 = randint(0, self.number_rel_all - 1)
 
             if op == 1:
@@ -126,7 +138,7 @@ class Synthesizer:
                 while self.arities[rel1] < 2:
                     rel1 = randint(0, self.number_rel_all - 1)
                 self.selection(rel1)
-            elif op == 6:
+            else:
                 such_arity_exist = self.such_arity_exist(self.arities[rel1])
                 if such_arity_exist:
                     rel2 = random.choice(self.rel_per_arity[self.arities[rel1]])
@@ -134,8 +146,25 @@ class Synthesizer:
                         rel2 = random.choice(self.rel_per_arity[self.arities[rel1]])
                     self.setd(rel1, rel2)
 
-        print(self.degree)
-        print(self.ops_on_rel)
+
+        json_degree = json.dumps(self.degree)
+        json_ops = json.dumps(self.ops_on_rel)
+        self.operations_log.write(json_degree)
+        self.operations_log.write("\n")
+        self.operations_log.write(json_ops)
+        self.operations_log.close()
+
+        for rel in self.tuples_per_rel:
+            json_rel = json.dumps(rel) 
+            json_tuples = json.dumps(self.tuples_per_rel[rel].tolist())
+            self.ground_truth_log.write(json_rel)
+            self.ground_truth_log.write('\n')
+            self.ground_truth_log.write(json_tuples)
+            self.ground_truth_log.write('\n')
+        self.ground_truth_log.close()
+
+
+
     def create_new_permutation(self, arity):
         all_permutations = list(permutations(range(0, arity)))
         return random.choice(all_permutations)
@@ -148,20 +177,17 @@ class Synthesizer:
         new_permutation = self.create_new_permutation(self.arities[rel])
         new_rel = self.number_rel_all
         self.degree[new_rel] = self.degree[rel] + 1
+        print("degree", self.degree[new_rel])
         self.ops_on_rel[new_rel] = 'rename'
         self.operations_log.write("New relation id {}".format(str(new_rel)) + '\n')
         print("New relation id {}".format(str(new_rel)))
-        rename_tuples = np.zeros((len(curr_tuples),  self.arities[rel] + 1))
-        
+        rename_tuples = np.zeros((len(curr_tuples),  self.arities[rel]))
         self.number_rel_all += 1
-        for ind, t in enumerate(curr_tuples):
-            entities = []
-            for p in new_permutation:
-                entities.append(t[p])
-            rename_tuples[ind][0] = new_rel
-            rename_tuples[ind][1:self.arities[rel]+1] =  entities
 
-        self.sanity_check(rename_tuples, self.arities[rel])
+        for ind, p in enumerate(new_permutation):
+            rename_tuples[:, ind] = curr_tuples[:, p]
+
+        self.sanity_check(rename_tuples, self.arities[rel], new_rel)
 
 
     def projection(self, rel):
@@ -169,26 +195,20 @@ class Synthesizer:
         print("Projection operation for relation {}".format(str(rel)))
         curr_tuples = self.tuples_per_rel[rel]
         new_rel_arity = randint(1, self.arities[rel])
-        projection_tuples = np.zeros((len(curr_tuples),  new_rel_arity + 1))
+        projection_tuples = np.zeros((len(curr_tuples),  new_rel_arity))
         new_rel = self.number_rel_all
         self.degree[new_rel] = self.degree[rel] + 1
+        print("degree", self.degree[new_rel])
         self.ops_on_rel[new_rel] = 'project'
         self.operations_log.write("New relation id {}".format(str(new_rel)) + '\n')
         print("New relation id {}".format(str(new_rel)))
         self.number_rel_all += 1
-        permutation = []
-        while len(permutation) != new_rel_arity:
-            ent_pos = randint(0, self.arities[rel] - 1)
-            if ent_pos not in permutation:
-                permutation.append(ent_pos)
-        for ind, t in enumerate(curr_tuples):
-            entities = []
-            for p in permutation:
-                entities.append(t[p])
-            projection_tuples[ind][0] = new_rel
-            projection_tuples[ind][1:new_rel_arity+1] =  entities
 
-        self.sanity_check(projection_tuples, new_rel_arity)
+        permutation = random.sample(range(0, self.arities[rel]), new_rel_arity)
+
+        for ind, p in enumerate(permutation):
+            projection_tuples[:, ind] = curr_tuples[:, p]
+        self.sanity_check(projection_tuples, new_rel_arity, new_rel)
 
 
     def union(self, rel1, rel2):
@@ -198,43 +218,39 @@ class Synthesizer:
         curr_tuples2 = self.tuples_per_rel[rel2]
         new_rel = self.number_rel_all
         self.degree[new_rel] = max(self.degree[rel1], self.degree[rel2]) + 1
+        print("degree", self.degree[new_rel])
         self.ops_on_rel[new_rel] = 'union'
-        union_tuples = np.zeros((len(curr_tuples1) + len(curr_tuples2),  self.arities[rel1] + 1))
         self.operations_log.write("New relation id {}".format(str(new_rel)) + '\n')
         print("New relation id {}".format(str(new_rel)))
         self.number_rel_all += 1
-
-        for ind, t in enumerate(curr_tuples1):
-            union_tuples[ind][1:] = t
-            union_tuples[ind][0] = new_rel
-        for ind, t in enumerate(curr_tuples2):
-            union_tuples[len(curr_tuples1) + ind][1:] = t
-            union_tuples[len(curr_tuples1) + ind][0] = new_rel
-
-        self.sanity_check(union_tuples, self.arities[rel1])
+        union_tuples = np.concatenate((curr_tuples1, curr_tuples2))
+        self.sanity_check(union_tuples, self.arities[rel1], new_rel)
 
 
     def product(self, rel1, rel2):
-        if self.arities[rel1] + self.arities[rel2] < self.max_arity:
+        
+
+        if self.arities[rel1] + self.arities[rel2] <= self.max_arity:
             self.operations_log.write("Product operation for relation {} and {}".format(str(rel1), str(rel2)) + '\n')
             print("Product operation for relation {} and {}".format(str(rel1), str(rel2)))
             curr_tuples1 = self.tuples_per_rel[rel1]
             curr_tuples2 = self.tuples_per_rel[rel2]
             new_rel = self.number_rel_all
             self.degree[new_rel] = max(self.degree[rel1], self.degree[rel2]) + 1
+            print("degree", self.degree[new_rel])
             self.ops_on_rel[new_rel] = 'product'
-            product_tuples = np.zeros((len(curr_tuples1) * len(curr_tuples2),  self.arities[rel1] + self.arities[rel2] + 1))
+            product_tuples = np.zeros((len(curr_tuples1) * len(curr_tuples2),  self.arities[rel1] + self.arities[rel2]))
             
             self.operations_log.write("New relation id {}".format(str(new_rel)) + '\n')
             print("New relation id {}".format(str(new_rel)))
             self.number_rel_all += 1
-            for ind1, t1 in enumerate(curr_tuples1):
-                for ind2, t2 in enumerate(curr_tuples2):
-                    product_tuples[(ind1 * len(curr_tuples2))+ ind2][0] = new_rel
-                    product_tuples[(ind1 * len(curr_tuples2))+ ind2][1:self.arities[rel1]+1] = t1[0:self.arities[rel1]]
-                    product_tuples[(ind1 * len(curr_tuples2))+ ind2][self.arities[rel1]+1:self.arities[rel1] + self.arities[rel2]+1] = t2[0:self.arities[rel2]]
 
-            self.sanity_check(product_tuples, self.arities[rel1] + self.arities[rel2])
+            repeated1 = np.repeat(curr_tuples1, curr_tuples2.shape[0], 0)
+            repeated2 = np.tile(curr_tuples2, (curr_tuples1.shape[0], 1))
+            product_tuples = np.concatenate((repeated1, repeated2), 1)
+
+            self.sanity_check(product_tuples, self.arities[rel1] + self.arities[rel2], new_rel)
+
 
     def selection(self, rel):
         self.operations_log.write("Selection operation for relation {}".format(str(rel)) + '\n')
@@ -242,36 +258,29 @@ class Synthesizer:
         curr_tuples = self.tuples_per_rel[rel]
         new_rel = self.number_rel_all
         self.degree[new_rel] = self.degree[rel] + 1
+        print("degree", self.degree[new_rel])
         self.ops_on_rel[new_rel] = 'select'
         self.operations_log.write("New relation id {}".format(str(new_rel)) + '\n')
         print("New relation id {}".format(str(new_rel)))
-        selection_tuples = np.zeros((len(curr_tuples),  self.arities[rel] + 1))
+        # selection_tuples = np.zeros((len(curr_tuples),  self.arities[rel] + 1))
         
         self.number_rel_all += 1
 
         selection_type = random.random()
         if selection_type < 0.5:
-            which_pos_1 = 0
-            which_pos_2 = 0
-            while which_pos_1 == which_pos_2:
-                which_pos_1 = randint(0, self.arities[rel] - 1)
-                which_pos_2 = randint(0, self.arities[rel] - 1)
-            for ind, t in enumerate(curr_tuples):
-                if t[which_pos_1] == t[which_pos_2]:
-                    selection_tuples[ind][0] = new_rel
-                    selection_tuples[ind][1:] = t
+            pos1, pos2 = random.sample(range(0, self.arities[rel]), 2)
+            selection_tuples = curr_tuples[curr_tuples[:, pos1] == curr_tuples[:, pos2]]
+
         else:
-            which_pos_1 = randint(0, len(curr_tuples[0]) - 1)
-            which_val = randint(0, self.number_ent - 1)
-            for ind, t in enumerate(curr_tuples):
-                if t[which_pos_1] == which_val:
-                    selection_tuples[ind][0] = new_rel
-                    selection_tuples[ind][1:] = t
+            pos1 = randint(0, len(curr_tuples[0]) - 1)
+            c = randint(0, self.number_ent - 1)
+            selection_tuples = curr_tuples[curr_tuples[:, pos1] == c]
 
-        selection_tuples = self.remove_one_column(selection_tuples, which_pos_1 + 1)
-        selection_tuples = self.remove_padding(selection_tuples)
 
-        self.sanity_check(selection_tuples, self.arities[rel] - 1)
+        selection_tuples = self.remove_one_column(selection_tuples, pos1)
+
+        self.sanity_check(selection_tuples, self.arities[rel] - 1, new_rel)
+
 
 
     def remove_one_column(self, tuples, col):
@@ -287,27 +296,24 @@ class Synthesizer:
         
         new_rel = self.number_rel_all
         self.degree[new_rel] = max(self.degree[rel1], self.degree[rel2]) + 1
+        print("degree", self.degree[new_rel])
         self.ops_on_rel[new_rel] = 'setd'
         self.operations_log.write("New relation id {}".format(str(new_rel)) + '\n')
         print("New relation id {}".format(str(new_rel)))
-        setd_tuples = np.zeros((len(curr_tuples1),  self.arities[rel1] + 1))
         
         self.number_rel_all += 1
 
-        for ind, t in enumerate(curr_tuples1):
-            curr_tuples2 = np.array(curr_tuples2)
-            if not(tuple(np.array(t)) in {tuple(v): True for v in curr_tuples2}):
-                setd_tuples[ind][1:] = t
-                setd_tuples[ind][0] = new_rel
- 
-        setd_tuples = self.remove_padding(setd_tuples)
-        self.sanity_check(setd_tuples, self.arities[rel1])
+
+        rows_1 = curr_tuples1.view([('', curr_tuples1.dtype)] * curr_tuples1.shape[1])
+        # print("3"rows_1)
+        rows_2 = curr_tuples2.view([('', curr_tuples2.dtype)] * curr_tuples2.shape[1])
+        setd_tuples = np.setdiff1d(rows_1, rows_2).view(curr_tuples1.dtype).reshape(-1, curr_tuples1.shape[1])
+        self.sanity_check(setd_tuples, self.arities[rel1], new_rel)
 
         
-    def sanity_check(self, tuples, arity):
+    def sanity_check(self, tuples, arity, rel_id):
         if len(tuples) > 0:
-            rel_id = tuples[0, 0]
-            self.add_tuples_per_rel(tuples)
+            self.add_tuples_per_rel(tuples, rel_id)
             self.arities[rel_id] = arity
             self.rel_per_arity[arity].append(rel_id)
         else:
@@ -315,21 +321,34 @@ class Synthesizer:
             self.operations_log.write("Empty relation is created and deleted" + '\n')
             print("Empty relation is created and deleted")
 
-    def remove_padding(self, tuples):
-        all_zero = np.zeros(tuples.shape[1])
-        row_to_delete = []
-        for i in range(tuples.shape[0]):
-            if (tuples[i] == all_zero).all():
-                row_to_delete.append(i)
-        return np.delete(tuples, row_to_delete, 0)
+    # def load_tuples_per_rel(self):
 
+    #     ground_truth_log = open(os.path.join('outputs', 'Small', 'Small_20200430-135407', 'ground-truth.txt'), 'r')
+
+    #     curr_rel = 0
+    #     for ind, line in enumerate(ground_truth_log):
+    #         if ind % 2 == 0:
+    #             curr_rel = int(line)
+    #         else:
+    #             b_new = json.loads(line)
+    #             a_new = np.array(b_new)
+    #             self.tuples_per_rel[curr_rel] = a_new
+
+        # for rel in self.tuples_per_rel:
+        #     json_rel = json.dumps(rel) 
+        #     json_tuples = json.dumps(self.tuples_per_rel[rel].tolist())
+        #     self.ground_truth_log.write(json_rel)
+        #     self.ground_truth_log.write('\n')
+        #     self.ground_truth_log.write(json_tuples)
+        #     self.ground_truth_log.write('\n')
 
 
 if __name__ == '__main__':
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('-number_ent', type=int, default=100)
-    parser.add_argument('-number_rel', type=int, default=20)
-    parser.add_argument('-number_edge', type=int, default=50000)
+    parser.add_argument('-number_ent', type=int, default=10)
+    parser.add_argument('-number_rel', type=int, default=5)
+    parser.add_argument('-number_edge', type=int, default=50)
     parser.add_argument('-max_arity', type=int, default=3)
     parser.add_argument('-min_arity', type=int, default=2)
     parser.add_argument('-p_rename', type=float, default=0.10)
@@ -338,7 +357,7 @@ if __name__ == '__main__':
     parser.add_argument('-p_product', type=float, default=0.10)
     parser.add_argument('-p_selection', type=float, default=0.10)
     parser.add_argument('-p_setd', type=float, default=0.10)
-    parser.add_argument('-number_of_ops', type=int, default=50000)
+    parser.add_argument('-number_of_ops', type=int, default=10)
     parser.add_argument('-output_dir', type=str, default=None, help="A path to the directory where the dataset will be saved and/or loaded from.")
     parser.add_argument('-dataset_name', type=str, default="Small")
     parser.add_argument('-sub_sampling_p', type=float, default=0.50)
@@ -348,7 +367,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     synthesizer = Synthesizer(args)
-    subsampler = Subsampler(synthesizer.tuples_per_rel, args.sub_sampling_p, args.valid_p, args.test_p, args.output_dir, synthesizer.output_dir, args.max_arity)
+    subsampler = Subsampler(synthesizer.tuples_per_rel, args.sub_sampling_p, args.valid_p, args.test_p, synthesizer.output_dir, args.max_arity)
     print("sub sampling in progress")
     subsampler.sub_sample()
     print("decomposing in progress")
