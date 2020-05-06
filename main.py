@@ -87,6 +87,8 @@ class Experiment:
             model = RealEv3(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
         elif(model_name == "GETD"):
             model = GETD(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
+        elif(model_name == "ERMLP"):
+            model = ERMLP(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
         else:
             raise Exception("!!!! No mode called {} found !!!!".format(self.model_name))
         return model

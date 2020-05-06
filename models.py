@@ -356,12 +356,6 @@ class RealEv3(BaseClass):
         self.R_weights_4 = torch.nn.Embedding(dataset.num_rel(), 1, padding_idx=0)
         self.R_weights_5 = torch.nn.Embedding(dataset.num_rel(), 1, padding_idx=0)
 
-        self.R_weights_0.weight.requires_grad = False
-        self.R_weights_1.weight.requires_grad = False
-        self.R_weights_2.weight.requires_grad = False
-        self.R_weights_3.weight.requires_grad = False
-        self.R_weights_4.weight.requires_grad = False
-        self.R_weights_5.weight.requires_grad = False
 
     def init(self):
         self.E.weight.data[0] = torch.zeros(self.emb_dim)
@@ -446,76 +440,7 @@ class RealEv3(BaseClass):
             + self.R_weights_4(r_idx).squeeze() * scores[:, 8] * scores[:, 9] + self.R_weights_5(r_idx).squeeze() * scores[:, 10]
 
         return output
-        # r = torch.cat([r_idx, r_idx], 0).cuda()
-        # e1 = torch.cat([e1_idx, e1_idx], 0).cuda()
-        # e2 = torch.cat([e2_idx, e2_idx], 0).cuda()
-        # e3 = torch.cat([e3_idx, e3_idx], 0).cuda()
-        # e4 = torch.cat([e4_idx, e4_idx], 0).cuda()
-        # e5 = torch.cat([e5_idx, e5_idx], 0).cuda()
-        # e6 = torch.cat([e6_idx, e6_idx], 0).cuda()
 
-        # scores = self.forward_(r, e1, e2, e3, e4, e5, e6).reshape(2, -1).transpose(0, 1)
-        # # print(scores.reshape(2, -1).transpose(0, 1))
-        # # exit()
-        # # print(scores)
-        # return scores[:,0]
-
-        # r = r_idx
-        # e1 = e1_idx
-        # e2 = e2_idx
-        # e3 = e3_idx
-        # e4 = e4_idx
-        # e5 = e5_idx
-        # e6 = e6_idx
-
-        # scores0 = self.forward_(r, e1, e2, e3, e4, e5, e6)
-
-        # scores1 = self.forward_(r, e1, e2, e3, e4, e5, e6)
-
-        # print(scores0)
-        # print(scores1)
-        # # exit()
-        # return scores1
-
-        # scores = self.R_weights_0(r_idx).squeeze() * self.forward_(r_idx, e1_idx, zeros, zeros, zeros, zeros, zeros) * self.forward_(r_idx, zeros, e2_idx, e3_idx, e4_idx, e5_idx, e6_idx)  \
-        #         + self.R_weights_1(r_idx).squeeze() * self.forward_(r_idx, e1_idx, e2_idx, zeros, zeros, zeros, zeros) * self.forward_(r_idx, zeros, zeros, e3_idx, e4_idx, e5_idx, e6_idx) \
-        #         + self.R_weights_2(r_idx).squeeze() * self.forward_(r_idx, e1_idx, e2_idx, e3_idx, zeros, zeros, zeros) * self.forward_(r_idx, zeros, zeros, zeros, e4_idx, e5_idx, e6_idx) \
-        #         + self.R_weights_3(r_idx).squeeze() * self.forward_(r_idx, e1_idx, e2_idx, e3_idx, e4_idx, zeros, zeros) * self.forward_(r_idx, zeros, zeros, zeros, zeros, e5_idx, e6_idx) \
-        #         + self.R_weights_4(r_idx).squeeze() * self.forward_(r_idx, e1_idx, e2_idx, e3_idx, e4_idx, e5_idx, zeros) * self.forward_(r_idx, zeros, zeros, zeros, zeros, zeros, e6_idx) \
-        #         + self.R_weights_5(r_idx).squeeze() * self.forward_(r_idx, e1_idx, e2_idx, e3_idx, e4_idx, e5_idx, e6_idx)
-
-
-        # for i in range(1, self.max_arity + 1):
-        #     combinations = list(itertools.combinations([1, 2, 3, 4, 5, 6], i))
-        #     for comb in combinations:
-        #         e1_idx_ = e1_idx if (1 in comb) else zeros
-        #         e2_idx_ = e2_idx if (2 in comb) else zeros
-        #         e3_idx_ = e3_idx if (3 in comb) else zeros
-        #         e4_idx_ = e4_idx if (4 in comb) else zeros
-        #         e5_idx_ = e5_idx if (5 in comb) else zeros
-        #         e6_idx_ = e6_idx if (6 in comb) else zeros
-        #         tuples.append((e1_idx_, e2_idx_, e3_idx_, e4_idx_, e5_idx_, e6_idx_))
-
-        # scores = []
-        # for t in tuples:
-        #         s = self.forward_(r_idx, t[0], t[1], t[2], t[3], t[4], t[5])
-        #         scores.append(s)
-
-        
-
-        # output = s[0] * s[1] * s[2] * s[3] * s[4] * s[5]
-
-
-
-        # output += s[58] * s[5] + s[59] * s[4] + s[60] * s[3] + s[61] * s[2] + s[62] * s[1]
-        # output += s[-1]
-        # print(len(output))
-        # print(e1_idx.shape)
-        # exit()
-         # + self.R_w2(r_idx).squeeze() * self.forward_(r_idx, zeros, e2_idx) + self.R_w3(r_idx).squeeze() * self.forward_(r_idx, e1_idx, e2_idx)
-
-
-        
 
 class GETD(BaseClass):
     def __init__(self, dataset, emb_dim, **kwargs):
@@ -580,3 +505,73 @@ class GETD(BaseClass):
         W_mat1 = torch.einsum('ijklmno,ij,ik,il,im,in,io->i', W_mat, e1, e2, e3, e4, e5, e6)
         pred = self.hidden_dropout(W_mat1)
         return pred
+
+class ERMLP(BaseClass):
+    def __init__(self, dataset, emb_dim, **kwargs):
+        super(ERMLP, self).__init__()
+        self.emb_dim = emb_dim
+        self.E = torch.nn.Embedding(dataset.num_ent(), emb_dim, padding_idx=0)
+        self.R = torch.nn.Embedding(dataset.num_rel(), emb_dim, padding_idx=0)
+        self.hidden_drop_rate = kwargs["hidden_drop"]
+        self.hidden_drop1 = torch.nn.Dropout(self.hidden_drop_rate)
+        self.hidden_drop2 = torch.nn.Dropout(self.hidden_drop_rate)
+        self.hidden_drop3 = torch.nn.Dropout(self.hidden_drop_rate)
+        self.hidden_drop4 = torch.nn.Dropout(self.hidden_drop_rate)
+
+        self.non_linearity = kwargs["non_linearity"]
+        # self.hidden_size = kwargs["filt_w"]
+        self.fc1 = torch.nn.Linear(emb_dim * 7, 700)
+        self.fc2 = torch.nn.Linear(700, 300)
+        self.fc3 = torch.nn.Linear(300, 100)
+        self.fc4 = torch.nn.Linear(100, 1)
+
+    def init(self):
+        self.E.weight.data[0] = torch.ones(self.emb_dim)
+        self.R.weight.data[0] = torch.ones(self.emb_dim)
+        xavier_normal_(self.E.weight.data[1:])
+        xavier_normal_(self.R.weight.data[1:])
+
+    def apply_non_linearity(self, non_linearity, e):
+        if non_linearity == "relu":
+            return torch.relu(e)
+        elif non_linearity == "tanh":
+            return torch.tanh(e)
+        elif non_linearity == "sigmoid":
+            return torch.sigmoid(e)
+        elif non_linearity == "exp":
+            return torch.exp(e)
+        elif non_linearity == "lrelu":
+            return torch.nn.functional.leaky_relu(e)
+        elif non_linearity == "srelu":
+            return self.special_relu(e)
+        elif non_linearity == "none":
+            return e
+
+    def forward(self, r_idx, e1_idx, e2_idx, e3_idx, e4_idx, e5_idx, e6_idx):
+        r = self.R(r_idx)
+        e1 = self.E(e1_idx)
+        e2 = self.E(e2_idx)
+        e3 = self.E(e3_idx)
+        e4 = self.E(e4_idx)
+        e5 = self.E(e5_idx)
+        e6 = self.E(e6_idx)
+
+        input_layer = torch.cat((r, e1, e2, e3, e4, e5, e6), 1)
+        output = self.fc1(input_layer)
+        output = self.hidden_drop1(output)
+        output = self.apply_non_linearity(self.non_linearity, output)
+        output = self.fc2(output)
+        output = self.hidden_drop2(output)
+        output = self.apply_non_linearity(self.non_linearity, output)
+        output = self.fc3(output)
+        output = self.hidden_drop3(output)
+        output = self.apply_non_linearity(self.non_linearity, output)
+        output = self.fc4(output)
+        output = self.hidden_drop4(output)
+        output = self.apply_non_linearity(self.non_linearity, output)
+        output = output.reshape(r_idx.shape[0])
+
+        return output
+
+
+
