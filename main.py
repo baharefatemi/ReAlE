@@ -70,27 +70,30 @@ class Experiment:
         """
         Instantiate a model object given the model name
         """
-        model = None
-        if(model_name == "MDistMult"):
-            model = MDistMult(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        elif(model_name == "MCP"):
-            model = MCP(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        elif(model_name == "HSimplE"):
-            model = HSimplE(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        elif(model_name == "HypE"):
-            model = HypE(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        elif(model_name == "MTransH"):
-            model = MTransH(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        elif(model_name == "RealEv1"):
-            model = RealEv1(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        elif(model_name == "RealEv3"):
-            model = RealEv3(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        elif(model_name == "GETD"):
-            model = GETD(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        elif(model_name == "ERMLP"):
-            model = ERMLP(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        else:
-            raise Exception("!!!! No mode called {} found !!!!".format(self.model_name))
+        # model = None
+
+        model_class = globals()[model_name]
+        model = model_class(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
+        # if(model_name == "MDistMult"):
+        #     model = MDistMult
+        # elif(model_name == "MCP"):
+        #     model = MCP(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
+        # elif(model_name == "HSimplE"):
+        #     model = HSimplE(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
+        # elif(model_name == "HypE"):
+        #     model = HypE(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
+        # elif(model_name == "MTransH"):
+        #     model = MTransH(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
+        # elif(model_name == "RealEv1"):
+        #     model = RealEv1(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
+        # elif(model_name == "RealEv3"):
+        #     model = RealEv3(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
+        # elif(model_name == "GETD"):
+        #     model = GETD(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
+        # elif(model_name == "ERMLP"):
+        #     model = ERMLP(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
+        # else:
+        #     raise Exception("!!!! No mode called {} found !!!!".format(self.model_name))
         return model
 
 
@@ -191,7 +194,7 @@ class Experiment:
             print("Number of iterations is the same as that in the pretrained model.")
             print("Nothing left to train. Exiting.")
             print("*************")
-            return
+            # return
 
         print("Training the {} model...".format(self.model_name))
         print("Number of training data points: {}".format(len(self.dataset.data["train"])))
