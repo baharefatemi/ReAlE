@@ -43,6 +43,7 @@ class Dataset:
         if ds_name != "JF17K":
             self.read_operations()
             self.read_degrees()
+            
         self.data["valid"] = self.read(os.path.join(self.dir, "valid.txt"))
         self.batch_index = 0
 

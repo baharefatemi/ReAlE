@@ -137,12 +137,12 @@ class Tester:
                     print("Results for arity {}".format(arity[5:]))
                 print(self.measure_by_arity[arity])
 
-        if test_by_operation:
+        if self.valid_or_test == "test" and test_by_operation:
             for op in self.measure_by_op:
                 print("Results for operation {}".format(op))
                 print(self.measure_by_op[op])
 
-        if test_by_degree:
+        if self.valid_or_test == "test" and test_by_degree:
             for degree in self.measure_by_degree:
                 print("Results for degree {}".format(degree))
                 print(self.measure_by_degree[degree])

@@ -241,7 +241,7 @@ class Experiment:
                 with torch.no_grad():
                     print("validation:")
                     tester = Tester(self.dataset, self.model, "valid", self.model_name)
-                    measure_valid, _ = tester.test()
+                    measure_valid, _ = tester.test(True, False, False, False)
                     mrr = measure_valid.mrr["fil"]
                     # This is the best model we have so far if
                     # no "best_model" exists yes, or if this MRR is better than what we had before
@@ -262,7 +262,7 @@ class Experiment:
         with torch.no_grad():
             print("testing best model at iteration {} .... ".format(self.best_model.best_itr))
             tester = Tester(self.dataset, self.best_model, "test", self.model_name)
-            self.measure, self.measure_by_arity = tester.test(self.test_by_arity)
+            self.measure, self.measure_by_arity = tester.test(self.general_test, self.test_by_arity, self.test_by_op, self.test_by_deg)
 
         # Save the model at checkpoint
         # print("Saving model at {}".format(self.output_dir))
