@@ -52,6 +52,8 @@ class Tester:
         normalizer = 0
         self.measure_by_arity = {}
         self.meaddsure = Measure()
+        self.measure_by_op = {}
+        self.measure_by_degree = {}
 
         # If the dataset is JF17K and we have test data by arity, then
         # compute test accuracies by arity and show also global result
@@ -78,7 +80,39 @@ class Tester:
                 current_measure.normalize(normalizer_by_arity)
                 self.measure_by_arity[test_by_arity] = current_measure
 
-        else:
+
+        if(self.valid_or_test == "test"):
+            if test_by_operation:
+                    for cur_op in ['rename', 'project', 'union', 'product', 'select', 'setd']:
+                        test_by_operation = "{}".format(cur_op)
+                        if len(self.dataset.test_data_op.get(test_by_operation, ())) == 0 :
+                            print("%%%%% {} does not exist. Skipping.".format(test_by_arity))
+                            continue
+
+                        print("**** Evaluating operation {} having {} samples".format(cur_op, len(self.dataset.test_data_op[test_by_operation])))
+                        current_measure, normalizer_by_op =  self.eval_dataset(self.dataset.test_data_op[test_by_operation])
+
+                        normalizer += normalizer_by_op
+                        self.measure += current_measure
+                        current_measure.normalize(normalizer_by_op)
+                        self.measure_by_op[test_by_operation] = current_measure
+            if test_by_degree:
+                for degree in self.dataset.test_data_deg:
+                    
+                    if len(self.dataset.test_data_deg.get(degree, ())) == 0 :
+                        print("%%%%% {} does not exist. Skipping.".format(degree))
+                        continue
+
+                    print("**** Evaluating degree {} having {} samples".format(degree, len(self.dataset.test_data_deg[degree])))
+                    current_measure, normalizer_by_deg =  self.eval_dataset(self.dataset.test_data_deg[degree])
+
+                    normalizer += normalizer_by_deg
+                    self.measure += current_measure
+                    current_measure.normalize(normalizer_by_deg)
+                    self.measure_by_degree[degree] = current_measure
+                
+
+        if general_test:
             # Evaluate the test data for arity cur_arity
             current_measure, normalizer =  self.eval_dataset(self.dataset.data[self.valid_or_test])
             self.measure = current_measure
@@ -102,7 +136,18 @@ class Tester:
                 else:
                     print("Results for arity {}".format(arity[5:]))
                 print(self.measure_by_arity[arity])
-        else:
+
+        if test_by_operation:
+            for op in self.measure_by_op:
+                print("Results for operation {}".format(op))
+                print(self.measure_by_op[op])
+
+        if test_by_degree:
+            for degree in self.measure_by_degree:
+                print("Results for degree {}".format(degree))
+                print(self.measure_by_degree[degree])
+
+        if general_test:
             print(pr_txt)
             print(self.measure)
         return self.measure, self.measure_by_arity
