@@ -44,7 +44,7 @@ class Tester:
         return self.shred_facts(result)
 
 
-    def test(self, test_by_arity=False):
+    def test(self, general_test, test_by_arity, test_by_op, test_by_deg):
         """
         Evaluate the given dataset and print results, either by arity or all at once
         """

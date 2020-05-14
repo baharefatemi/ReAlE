@@ -42,6 +42,10 @@ class Experiment:
         self.measure = None
         self.measure_by_arity = None
         self.test_by_arity = not args.no_test_by_arity
+        self.general_test = args.general_test
+        self.test_by_op = args.test_by_op
+        self.test_by_deg = args.test_by_deg
+
         self.best_model = None
         # Load the specified model and initialize based on given checkpoint (if any)
         self.load_model()
@@ -182,7 +186,7 @@ class Experiment:
         self.model.eval()
         with torch.no_grad():
             tester = Tester(self.dataset, self.model, "test", self.model_name)
-            self.measure, self.measure_by_arity = tester.test(self.test_by_arity)
+            self.measure, self.measure_by_arity = tester.test(self.general_test, self.test_by_arity, self.test_by_op, self.test_by_deg)
             # Save the result of the tests
             self.save_model(self.model.cur_itr, "test")
 
@@ -261,8 +265,8 @@ class Experiment:
             self.measure, self.measure_by_arity = tester.test(self.test_by_arity)
 
         # Save the model at checkpoint
-        print("Saving model at {}".format(self.output_dir))
-        self.save_model(it, "test")
+        # print("Saving model at {}".format(self.output_dir))
+        # self.save_model(it, "test")
 
 
     def create_output_dir(self, output_dir=None):
@@ -347,6 +351,10 @@ if __name__ == '__main__':
     parser.add_argument("-test", action="store_true", help="If -test is set, then you must specify a -pretrained model. "
                         + "This will perform testing on the pretrained model and save the output in -output_dir")
     parser.add_argument("-no_test_by_arity", action="store_true", help="If set, then validation will be performed by arity.")
+    parser.add_argument("-test_by_op", action="store_true", help="If set, then validation will be performed by operation.")
+    parser.add_argument("-test_by_deg", action="store_true", help="If set, then validation will be performed by degree.")
+    parser.add_argument("-general_test", action="store_true", help="If set, then validation will be performed for all.")
+
     parser.add_argument('-pretrained', type=str, default=None, help="A path to a trained model (.chkpnt file), which will be loaded if provided.")
     parser.add_argument('-output_dir', type=str, default=None, help="A path to the directory where the model will be saved and/or loaded from.")
     parser.add_argument('-restartable', action="store_true", help="If restartable is set, you must specify an output_dir")
