@@ -261,8 +261,8 @@ class Experiment:
             self.measure, self.measure_by_arity = tester.test(self.test_by_arity)
 
         # Save the model at checkpoint
-        print("Saving model at {}".format(self.output_dir))
-        self.save_model(it, "test")
+        # print("Saving model at {}".format(self.output_dir))
+        # self.save_model(it, "test")
 
 
     def create_output_dir(self, output_dir=None):

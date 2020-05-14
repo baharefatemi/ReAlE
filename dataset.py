@@ -4,6 +4,9 @@ import random
 import torch
 import math
 
+from os import listdir
+from os.path import isfile, join
+
 class Dataset:
     def __init__(self, ds_name, max_arity=6):
         self.name = ds_name
@@ -14,22 +17,47 @@ class Dataset:
         self.ent2id = {"":0}
         self.rel2id = {"":0}
         self.data = {}
+        self.test_data_op = {}
+        self.test_data_deg = {}
         print("Loading the dataset {} ....".format(ds_name))
         self.data["train"] = self.read(os.path.join(self.dir, "train.txt"))
         # Shuffle the train set
         np.random.shuffle(self.data['train'])
 
         # Load the test data
-        self.data["test"] = self.read_test(os.path.join(self.dir, "test.txt"))
+        if ds_name == "JF17K":
+            self.data["test"] = self.read_test(os.path.join(self.dir, "test.txt"))
+        else:
+            self.data["test"] = self.read(os.path.join(self.dir, "test.txt"))
         # Read the test files by arity, if they exist
         # If they do, then test output will be displayed by arity
         for i in range(2,self.max_arity+1):
             test_arity = "test_{}".format(i)
             file_path = os.path.join(self.dir, "test_{}.txt".format(i))
-            self.data[test_arity] = self.read_test(file_path)
+            if ds_name == "JF17K":
+                self.data[test_arity] = self.read_test(file_path)
+            else:
+                self.data[test_arity] = self.read(file_path)
 
+
+        if ds_name != "JF17K":
+            self.read_operations()
+            self.read_degrees()
         self.data["valid"] = self.read(os.path.join(self.dir, "valid.txt"))
         self.batch_index = 0
+
+
+    def read_operations(self):
+        operations = ['rename', 'project', 'union', 'product', 'select', 'setd']
+        for op in operations:
+            file_path = os.path.join(self.dir, 'operations', "{}.txt".format(op))
+            self.test_data_op[op] = self.read(file_path)
+  
+    def read_degrees(self):
+        path_degree = os.path.join(self.dir, 'degrees')
+        files = [f for f in listdir(path_degree) if isfile(join(path_degree, f))]
+        for f in files:
+            self.test_data_deg[f[:-4]] = self.read(os.path.join(path_degree, f))
 
     def read(self, file_path):
         if not os.path.exists(file_path):
