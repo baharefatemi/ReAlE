@@ -1,14 +1,12 @@
 import os
 import datetime
-from random import seed
-from random import randint
-from random import random
 import random
 import numpy as np
 from collections import defaultdict
 
 DEFAULT_SAVE_DIR = './outputs'
-seed(3)
+random.seed(3)
+np.random.seed(3)
 
 class Subsampler:
 	def __init__(self, tuples_per_rel, sub_sampling_p, valid_p, test_p, output_dir, max_arity):
@@ -60,9 +58,6 @@ class Subsampler:
 						self.ents_in_train[ent] = True
 		del self.knowledge_graph
 
-		print("train size:", len(self.train_tuples))
-		print("valid size:", len(self.valid_tuples))
-		print("test size:", len(self.test_tuples))
 
 	def write_files(self):
 		self.write_files_(self.train_tuples, os.path.join(self.output_dir, 'train.txt'))
@@ -107,5 +102,45 @@ class Subsampler:
 		return max_arity, n_tuples
 
 
+	def decompose_test_file_operation(self, ops_on_rel):
+		input_file = open(os.path.join(self.output_dir, 'test.txt'), 'r')
+		output_dir = os.path.join(self.output_dir, 'operations')
+		if not os.path.exists(output_dir):
+			os.makedirs(output_dir)
+		operation_files = {
+			'rename': open(os.path.join(output_dir, 'rename.txt'), 'w'),
+			'project': open(os.path.join(output_dir, 'project.txt'), 'w'),
+			'product': open(os.path.join(output_dir, 'product.txt'), 'w'),
+			'union': open(os.path.join(output_dir, 'union.txt'), 'w'),
+			'setd': open(os.path.join(output_dir, 'setd.txt'), 'w'),
+			'select': open(os.path.join(output_dir, 'select.txt'), 'w'),
+			'primitive': open(os.path.join(output_dir, 'primitive.txt'), 'w')}
 
-						
+		for line in input_file:
+			rel = int(line.strip().split('\t')[0])
+			if rel in ops_on_rel:
+				operation_files[ops_on_rel[rel]].write(line)
+			else:
+				operation_files["primitive"].write(line)
+
+	def decompose_test_file_degree(self, degree):
+		input_file = open(os.path.join(self.output_dir, 'test.txt'), 'r')
+		output_dir = os.path.join(self.output_dir, 'degrees')
+
+		if not os.path.exists(output_dir):
+			os.makedirs(output_dir)
+			
+		degree_list = list(degree.values())
+		degree_files = {}
+
+		for deg in degree_list:
+			degree_files[deg] = open(os.path.join(output_dir, str(deg) + '.txt'), 'w')
+
+		for line in input_file:
+			rel = int(line.strip().split('\t')[0])
+			degree_files[degree[rel]].write(line)
+
+
+	def decompose_test_file(self, ops_on_rel, degree):
+		self.decompose_test_file_operation(ops_on_rel)
+		self.decompose_test_file_degree(degree)

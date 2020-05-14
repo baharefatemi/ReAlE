@@ -1,8 +1,5 @@
 import os
 import datetime
-from random import seed
-from random import randint
-from random import random
 import random
 import argparse
 import numpy as np
@@ -13,7 +10,8 @@ import json
 import sys
 
 DEFAULT_SAVE_DIR = './outputs'
-seed(3)
+random.seed(3)
+np.random.seed(3)
 
 class Synthesizer:
     def __init__(self, args):
@@ -69,7 +67,7 @@ class Synthesizer:
     def create_arities(self):
         arities = {}
         for rel in range(self.number_rel):
-            arity = randint(self.min_arity, self.max_arity)
+            arity = random.randint(self.min_arity, self.max_arity)
             arities[rel] = arity
             self.degree[rel] = 0
         return arities
@@ -80,11 +78,11 @@ class Synthesizer:
 
     def create_init_graph(self):
         for edge in range(self.number_edge):
-            rel = randint(0, self.number_rel-1)
+            rel = random.randint(0, self.number_rel-1)
             entities = []
             arity = self.arities[rel]
             for ar in range(arity):
-                entities.append(randint(1, self.number_ent))
+                entities.append(random.randint(1, self.number_ent))
             self.tuples_per_rel[rel].append(entities)
 
         self.rel_per_arity_init()
@@ -116,7 +114,7 @@ class Synthesizer:
 
             op = random.choices(np.arange(1, 7), weights=[args.p_rename, args.p_projection, args.p_union, args.p_product, args.p_selection, args.p_setd])[0]
             ind_operation += 1
-            rel1 = randint(0, self.number_rel_all - 1)
+            rel1 = random.randint(0, self.number_rel_all - 1)
 
             if op == 1:
                 self.rename(rel1)
@@ -130,13 +128,13 @@ class Synthesizer:
                         rel2 = random.choice(self.rel_per_arity[self.arities[rel1]])
                     self.union(rel1, rel2)
             elif op == 4:
-                rel2 = randint(0, self.number_rel_all - 1)
+                rel2 = random.randint(0, self.number_rel_all - 1)
                 while rel1 == rel2:
-                    rel2 = randint(0, self.number_rel_all - 1)
+                    rel2 = random.randint(0, self.number_rel_all - 1)
                 self.product(rel1, rel2)
             elif op == 5:
                 while self.arities[rel1] < 2:
-                    rel1 = randint(0, self.number_rel_all - 1)
+                    rel1 = random.randint(0, self.number_rel_all - 1)
                 self.selection(rel1)
             else:
                 such_arity_exist = self.such_arity_exist(self.arities[rel1])
@@ -194,7 +192,7 @@ class Synthesizer:
         self.operations_log.write("Projection operation for relation {}".format(str(rel)) + '\n')
         print("Projection operation for relation {}".format(str(rel)))
         curr_tuples = self.tuples_per_rel[rel]
-        new_rel_arity = randint(1, self.arities[rel])
+        new_rel_arity = random.randint(1, self.arities[rel])
         projection_tuples = np.zeros((len(curr_tuples),  new_rel_arity))
         new_rel = self.number_rel_all
         self.degree[new_rel] = self.degree[rel] + 1
@@ -272,8 +270,8 @@ class Synthesizer:
             selection_tuples = curr_tuples[curr_tuples[:, pos1] == curr_tuples[:, pos2]]
 
         else:
-            pos1 = randint(0, len(curr_tuples[0]) - 1)
-            c = randint(0, self.number_ent - 1)
+            pos1 = random.randint(0, len(curr_tuples[0]) - 1)
+            c = random.randint(0, self.number_ent - 1)
             selection_tuples = curr_tuples[curr_tuples[:, pos1] == c]
 
 
@@ -374,3 +372,5 @@ if __name__ == '__main__':
     subsampler.decompose()
     print("write files in progress")
     subsampler.write_files()
+    print("test decomposer in progress")
+    subsampler.decompose_test_file(synthesizer.ops_on_rel, synthesizer.degree)
