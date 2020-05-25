@@ -82,7 +82,7 @@ class Tester:
 
 
         if(self.valid_or_test == "test"):
-            if test_by_operation:
+            if test_by_op:
                     for cur_op in ['rename', 'project', 'union', 'product', 'select', 'setd']:
                         test_by_operation = "{}".format(cur_op)
                         if len(self.dataset.test_data_op.get(test_by_operation, ())) == 0 :
@@ -96,7 +96,7 @@ class Tester:
                         self.measure += current_measure
                         current_measure.normalize(normalizer_by_op)
                         self.measure_by_op[test_by_operation] = current_measure
-            if test_by_degree:
+            if test_by_deg:
                 for degree in self.dataset.test_data_deg:
                     
                     if len(self.dataset.test_data_deg.get(degree, ())) == 0 :
@@ -137,12 +137,12 @@ class Tester:
                     print("Results for arity {}".format(arity[5:]))
                 print(self.measure_by_arity[arity])
 
-        if self.valid_or_test == "test" and test_by_operation:
+        if self.valid_or_test == "test" and test_by_op:
             for op in self.measure_by_op:
                 print("Results for operation {}".format(op))
                 print(self.measure_by_op[op])
 
-        if self.valid_or_test == "test" and test_by_degree:
+        if self.valid_or_test == "test" and test_by_deg:
             for degree in self.measure_by_degree:
                 print("Results for degree {}".format(degree))
                 print(self.measure_by_degree[degree])
@@ -196,6 +196,50 @@ class Tester:
 
         return current_rank, normalizer
 
+    def eval_dataset(self, dataset):
+        """
+        Evaluate the dataset with the given model.
+        """
+        # Reset normalization parameter
+        settings = ["raw", "fil"]
+        normalizer = 0
+        # Contains the measure values for the given dataset (e.g. test for arity 2)
+        current_rank = Measure()
+        for i, fact in enumerate(dataset):
+            arity = self.dataset.max_arity - (fact == 0).sum()
+            for j in range(1, arity + 1):
+                normalizer += 1
+                queries = self.create_queries(fact, j)
+                for raw_or_fil in settings:
+                    r, e1, e2, e3, e4, e5, e6 = self.add_fact_and_shred(fact, queries, raw_or_fil)
+                    if (self.model_name == "HypE"):
+                        ms = np.zeros((len(r),6))
+                        bs = np.ones((len(r), 6))
+
+                        ms[:, 0:arity] = 1
+                        bs[:, 0:arity] = 0
+
+                        ms = torch.tensor(ms).float().to(self.device)
+                        bs = torch.tensor(bs).float().to(self.device)
+                        sim_scores = self.model(r, e1, e2, e3, e4, e5, e6, ms, bs).cpu().data.numpy()
+                    elif (self.model_name == "MTransH"):
+                        ms = np.zeros((len(r),6))
+                        ms[:, 0:arity] = 1
+                        ms = torch.tensor(ms).float().to(self.device)
+                        sim_scores = self.model(r, e1, e2, e3, e4, e5, e6, ms).cpu().data.numpy()
+                    else:
+                        sim_scores = self.model(r, e1, e2, e3, e4, e5, e6).cpu().data.numpy()
+
+                    # Get the rank and update the measures
+                    rank = self.get_rank(sim_scores)
+                    current_rank.update(rank, raw_or_fil)
+                    # self.measure.update(rank, raw_or_fil)
+
+            if i % 1000 == 0:
+                print("--- Testing sample {}".format(i))
+
+        return current_rank, normalizer
+        
     def shred_facts(self, tuples):
         r  = [tuples[i][0] for i in range(len(tuples))]
         e1 = [tuples[i][1] for i in range(len(tuples))]

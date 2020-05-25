@@ -40,7 +40,7 @@ class Dataset:
                 self.data[test_arity] = self.read(file_path)
 
 
-        if ds_name != "JF17K":
+        if ds_name == "Small" or ds_name == "Medium" or ds_name == "JF17KS":
             self.read_operations()
             self.read_degrees()
             
@@ -58,7 +58,8 @@ class Dataset:
         path_degree = os.path.join(self.dir, 'degrees')
         files = [f for f in listdir(path_degree) if isfile(join(path_degree, f))]
         for f in files:
-            self.test_data_deg[f[:-4]] = self.read(os.path.join(path_degree, f))
+            if not f.startswith('._'):
+                self.test_data_deg[f[:-4]] = self.read(os.path.join(path_degree, f))
 
     def read(self, file_path):
         if not os.path.exists(file_path):

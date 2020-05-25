@@ -27,6 +27,8 @@ class Experiment:
         self.test = args.test
         self.output_dir = args.output_dir
         self.restartable = args.restartable
+        self.opt = args.opt
+        self.reg = args.reg
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.kwargs = {"in_channels":args.in_channels,"out_channels":args.out_channels, "filt_h":args.filt_h, "filt_w":args.filt_w,
                        "hidden_drop":args.hidden_drop, "stride":args.stride, "input_drop":args.input_drop, "non_linearity": args.non_linearity, "ent_non_linearity": args.ent_non_linearity, "reg":args.reg, "smart_initialization": args.smart_initialization}
@@ -159,8 +161,10 @@ class Experiment:
         self.model = self.get_model_from_name(self.model_name)
 
         # Load the pretrained model
-        self.opt = torch.optim.Adagrad(self.model.parameters(), lr=self.learning_rate)
-
+        if self.opt == "Adagrad":
+            self.opt = torch.optim.Adagrad(self.model.parameters(), lr=self.learning_rate, weight_decay=self.reg)
+        elif self.opt == "Adam":
+            self.opt = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay=self.reg)
         if self.pretrained is not None:
             print("Loading the pretrained model at {} for testing".format(self.pretrained))
             self.model.load_state_dict(torch.load(self.pretrained))
@@ -262,7 +266,7 @@ class Experiment:
         with torch.no_grad():
             print("testing best model at iteration {} .... ".format(self.best_model.best_itr))
             tester = Tester(self.dataset, self.best_model, "test", self.model_name)
-            self.measure, self.measure_by_arity = tester.test(self.general_test, self.test_by_arity, self.test_by_op, self.test_by_deg)
+            self.measure, self.measure_by_arity = tester.test(True, self.test_by_arity, self.test_by_op, self.test_by_deg)
 
         # Save the model at checkpoint
         # print("Saving model at {}".format(self.output_dir))
@@ -362,7 +366,7 @@ if __name__ == '__main__':
     parser.add_argument('-ent_non_linearity', type=str, default="none", help="non-linearity to apply on entity embeddings")
     parser.add_argument('-reg', type=float, default=0.0)
     parser.add_argument('-smart_initialization', action="store_true")
-
+    parser.add_argument('-opt', type=str, default="Adagrad")
     args = parser.parse_args()
 
     if args.restartable and (args.output_dir is None):

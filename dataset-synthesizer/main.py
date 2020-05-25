@@ -16,12 +16,12 @@ np.random.seed(3)
 class Synthesizer:
     def __init__(self, args):
         self.dataset_name = args.dataset_name
-        self.number_ent = args.number_ent
+        # self.number_ent = args.number_ent
         self.number_rel = args.number_rel
         self.number_rel_all = self.number_rel
-        self.number_edge = args.number_edge
+        # self.number_edge = args.number_edge
         self.max_arity = args.max_arity
-        self.min_arity = args.min_arity
+        # self.min_arity = args.min_arity
         self.p_rename = args.p_rename
         self.p_projection = args.p_projection
         self.p_union = args.p_union
@@ -30,25 +30,30 @@ class Synthesizer:
         self.p_setd = args.p_setd
         self.number_of_ops = args.number_of_ops
 
+        self.ent2id = {"":0}
 
         self.tuples_per_rel = defaultdict(lambda: [])
         self.rel_per_arity = defaultdict(lambda: [])
         self.degree = {}
         self.ops_on_rel = {}
         self.output_dir = self.create_output_dir(args.output_dir)
-        self.arities = self.create_arities()
-        
+
+        population, weights = self.get_arities_populations()
+        self.arities = self.create_arities(population, weights)
+        self.population_dict = self.get_tuples_per_arity_population()
+        self.ent_population = self.get_ent_population()
+
         self.operations_log = open(os.path.join(self.output_dir, 'ops-logs.txt'), 'w')
         self.ground_truth_log = open(os.path.join(self.output_dir, 'ground-truth.txt'), 'w')
         print("ground truth generator in progress")
-        self.init_tuples = self.create_init_graph()
+        self.init_tuples = self.create_init_graph(self.population_dict, self.ent_population)
 
-        print("applying operations in progress")
+        # print("applying operations in progress")
         self.apply_operations()
 
-        print("max degree", max(self.degree.values()))
+        # print("max degree", max(self.degree.values()))
 
-        # self.load_tuples_per_rel()
+        # # self.load_tuples_per_rel()
 
     def create_output_dir(self, output_dir):
         """
@@ -64,10 +69,18 @@ class Synthesizer:
             print("Created output directory {}".format(output_dir))
         return output_dir
 
-    def create_arities(self):
+    # def create_arities(self):
+    #     arities = {}
+    #     for rel in range(self.number_rel):
+    #         arity = random.randint(self.min_arity, self.max_arity)
+    #         arities[rel] = arity
+    #         self.degree[rel] = 0
+    #     return arities
+
+    def create_arities(self, population, weights):
         arities = {}
         for rel in range(self.number_rel):
-            arity = random.randint(self.min_arity, self.max_arity)
+            arity = random.choices(population, weights, k=1)[0]
             arities[rel] = arity
             self.degree[rel] = 0
         return arities
@@ -76,19 +89,36 @@ class Synthesizer:
         for rel, arity in enumerate(self.arities):
             self.rel_per_arity[self.arities[rel]].append(rel)
 
-    def create_init_graph(self):
-        for edge in range(self.number_edge):
-            rel = random.randint(0, self.number_rel-1)
-            entities = []
+    # def create_init_graph(self):
+    #     for edge in range(self.number_edge):
+    #         rel = random.randint(0, self.number_rel-1)
+    #         entities = []
+    #         arity = self.arities[rel]
+    #         for ar in range(arity):
+    #             entities.append(random.randint(1, self.number_ent))
+    #         self.tuples_per_rel[rel].append(entities)
+
+    #     self.rel_per_arity_init()
+
+    #     for r in self.tuples_per_rel:
+    #         self.tuples_per_rel[r] = np.array(self.tuples_per_rel[r])
+
+
+    def create_init_graph(self, population_dict, ent_population):
+
+        for rel in range(self.number_rel):
             arity = self.arities[rel]
-            for ar in range(arity):
-                entities.append(random.randint(1, self.number_ent))
-            self.tuples_per_rel[rel].append(entities)
+
+            number_tuples = random.choices(list(population_dict[arity].values()), k=1)[0]
+            for i in range(number_tuples):
+                entities = random.choices(list(self.ent_population.keys()), list(self.ent_population.values()), k = arity)
+                self.tuples_per_rel[rel].append(entities)
 
         self.rel_per_arity_init()
 
         for r in self.tuples_per_rel:
             self.tuples_per_rel[r] = np.array(self.tuples_per_rel[r])
+
 
     def add_tuples_per_rel(self, tuples, rel):
 
@@ -271,7 +301,9 @@ class Synthesizer:
 
         else:
             pos1 = random.randint(0, len(curr_tuples[0]) - 1)
-            c = random.randint(0, self.number_ent - 1)
+            c = random.choices(list(self.ent_population.keys()), list(self.ent_population.values()), k = 1)[0]
+
+            # c = random.randint(0, self.number_ent - 1)
             selection_tuples = curr_tuples[curr_tuples[:, pos1] == c]
 
 
@@ -319,46 +351,69 @@ class Synthesizer:
             self.operations_log.write("Empty relation is created and deleted" + '\n')
             print("Empty relation is created and deleted")
 
-    # def load_tuples_per_rel(self):
+    def get_arities_populations(self):
+        train_file = open('../data/JF17K/train.txt', 'r')
+        population = [2, 3, 4, 5, 6]
+        weights = [0, 0, 0, 0, 0]
+        for line in train_file:
+            entities = line.strip().split('\t')[1:]
+            arity = len(entities)
+            weights[arity - 2] += 1
+        train_file.close()
+        return population, weights
 
-    #     ground_truth_log = open(os.path.join('outputs', 'Small', 'Small_20200430-135407', 'ground-truth.txt'), 'r')
+    def get_tuples_per_arity_population(self):
+        train_file = open('../data/JF17K/train.txt', 'r')
+        population_dict = {2:{}, 3:{}, 4:{}, 5:{}, 6:{}}
+        for line in train_file:
+            tokens = line.strip().split('\t')
+            rel = tokens[0]
+            arity = len(tokens) - 1
 
-    #     curr_rel = 0
-    #     for ind, line in enumerate(ground_truth_log):
-    #         if ind % 2 == 0:
-    #             curr_rel = int(line)
-    #         else:
-    #             b_new = json.loads(line)
-    #             a_new = np.array(b_new)
-    #             self.tuples_per_rel[curr_rel] = a_new
+            if rel not in population_dict[arity]:
+                population_dict[arity][rel] = 0
+            population_dict[arity][rel] += 1
 
-        # for rel in self.tuples_per_rel:
-        #     json_rel = json.dumps(rel) 
-        #     json_tuples = json.dumps(self.tuples_per_rel[rel].tolist())
-        #     self.ground_truth_log.write(json_rel)
-        #     self.ground_truth_log.write('\n')
-        #     self.ground_truth_log.write(json_tuples)
-        #     self.ground_truth_log.write('\n')
+        train_file.close()
+        return population_dict
 
+    def get_ent_population(self):
+        train_file = open('../data/JF17K/train.txt', 'r')
+        population_dict = {}
+        for line in train_file:
+            entities = line.strip().split('\t')[1:]
+            for ent in entities:
+                ent = self.get_ent_id(ent)
+                if ent not in population_dict:
+                    population_dict[ent] = 0
+                population_dict[ent] += 1
+        train_file.close()
+        return population_dict
+
+
+    def get_ent_id(self, ent):
+        if not ent in self.ent2id:
+            self.ent2id[ent] = len(self.ent2id)
+        return self.ent2id[ent]
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-number_ent', type=int, default=10)
-    parser.add_argument('-number_rel', type=int, default=5)
-    parser.add_argument('-number_edge', type=int, default=50)
-    parser.add_argument('-max_arity', type=int, default=3)
-    parser.add_argument('-min_arity', type=int, default=2)
+    # parser.add_argument('-number_ent', type=int, default=10)
+    parser.add_argument('-number_rel', type=int, default=200)
+    # parser.add_argument('-number_edge', type=int, default=50)
+    parser.add_argument('-max_arity', type=int, default=6)
+    # parser.add_argument('-min_arity', type=int, default=2)
     parser.add_argument('-p_rename', type=float, default=0.10)
     parser.add_argument('-p_projection', type=float, default=0.10)
     parser.add_argument('-p_union', type=float, default=0.10)
     parser.add_argument('-p_product', type=float, default=0.10)
     parser.add_argument('-p_selection', type=float, default=0.10)
     parser.add_argument('-p_setd', type=float, default=0.10)
-    parser.add_argument('-number_of_ops', type=int, default=10)
+    parser.add_argument('-number_of_ops', type=int, default=200)
     parser.add_argument('-output_dir', type=str, default=None, help="A path to the directory where the dataset will be saved and/or loaded from.")
     parser.add_argument('-dataset_name', type=str, default="Small")
-    parser.add_argument('-sub_sampling_p', type=float, default=0.50)
+    parser.add_argument('-sub_sampling_p', type=float, default=1.00)
     parser.add_argument('-valid_p', type=float, default=0.10)
     parser.add_argument('-test_p', type=float, default=0.10)
     
