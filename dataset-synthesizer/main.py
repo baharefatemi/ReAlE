@@ -79,10 +79,14 @@ class Synthesizer:
 
     def create_arities(self, population, weights):
         arities = {}
+        print(population)
+        print(weights)
+        exit()
         for rel in range(self.number_rel):
             arity = random.choices(population, weights, k=1)[0]
             arities[rel] = arity
             self.degree[rel] = 0
+
         return arities
 
     def rel_per_arity_init(self):
@@ -110,9 +114,12 @@ class Synthesizer:
             arity = self.arities[rel]
 
             number_tuples = random.choices(list(population_dict[arity].values()), k=1)[0]
+            print("arity", arity)
+            print("#tuples", number_tuples)
             for i in range(number_tuples):
                 entities = random.choices(list(self.ent_population.keys()), list(self.ent_population.values()), k = arity)
                 self.tuples_per_rel[rel].append(entities)
+
 
         self.rel_per_arity_init()
 
@@ -352,19 +359,54 @@ class Synthesizer:
             print("Empty relation is created and deleted")
 
     def get_arities_populations(self):
-        train_file = open('../data/JF17K/train.txt', 'r')
+        train_file = open('../data/FB-AUTO/train.txt', 'r')
         population = [2, 3, 4, 5, 6]
+        rels_seen = {}
         weights = [0, 0, 0, 0, 0]
         for line in train_file:
-            entities = line.strip().split('\t')[1:]
-            arity = len(entities)
-            weights[arity - 2] += 1
+            tokens = line.strip().split('\t')
+            rel = tokens[0]
+            if rel not in rels_seen:
+                rels_seen[rel] = True
+                entities = tokens[1:]
+                arity = len(entities)
+                weights[arity - 2] += 1
         train_file.close()
+
+
+        valid_file = open('../data/FB-AUTO/valid.txt', 'r')
+        for line in valid_file:
+            tokens = line.strip().split('\t')
+            rel = tokens[0]
+            if rel not in rels_seen:
+                rels_seen[rel] = True
+                entities = tokens[1:]
+                arity = len(entities)
+                weights[arity - 2] += 1
+        valid_file.close()
+
+
+        test_file = open('../data/FB-AUTO/test.txt', 'r')
+        for line in test_file:
+            tokens = line.strip().split('\t')
+            rel = tokens[0]
+            if rel not in rels_seen:
+                rels_seen[rel] = True
+                entities = tokens[1:]
+                arity = len(entities)
+                weights[arity - 2] += 1
+        test_file.close()
+
+        print(weights)
+        print(population)
+
         return population, weights
 
     def get_tuples_per_arity_population(self):
-        train_file = open('../data/JF17K/train.txt', 'r')
+        
         population_dict = {2:{}, 3:{}, 4:{}, 5:{}, 6:{}}
+
+        train_file = open('../data/FB-AUTO/train.txt', 'r')
         for line in train_file:
             tokens = line.strip().split('\t')
             rel = tokens[0]
@@ -373,13 +415,40 @@ class Synthesizer:
             if rel not in population_dict[arity]:
                 population_dict[arity][rel] = 0
             population_dict[arity][rel] += 1
-
         train_file.close()
+
+
+        valid_file = open('../data/FB-AUTO/valid.txt', 'r')
+        for line in valid_file:
+            tokens = line.strip().split('\t')
+            rel = tokens[0]
+            arity = len(tokens) - 1
+
+            if rel not in population_dict[arity]:
+                population_dict[arity][rel] = 0
+            population_dict[arity][rel] += 1
+        valid_file.close()
+
+
+        test_file = open('../data/FB-AUTO/test.txt', 'r')
+        for line in test_file:
+            tokens = line.strip().split('\t')
+            rel = tokens[0]
+            arity = len(tokens) - 1
+
+            if rel not in population_dict[arity]:
+                population_dict[arity][rel] = 0
+            population_dict[arity][rel] += 1
+        test_file.close()
+
+        print(population_dict)
         return population_dict
 
     def get_ent_population(self):
-        train_file = open('../data/JF17K/train.txt', 'r')
+        
         population_dict = {}
+
+        train_file = open('../data/FB-AUTO/train.txt', 'r')
         for line in train_file:
             entities = line.strip().split('\t')[1:]
             for ent in entities:
@@ -388,6 +457,27 @@ class Synthesizer:
                     population_dict[ent] = 0
                 population_dict[ent] += 1
         train_file.close()
+
+        valid_file = open('../data/FB-AUTO/valid.txt', 'r')
+        for line in valid_file:
+            entities = line.strip().split('\t')[1:]
+            for ent in entities:
+                ent = self.get_ent_id(ent)
+                if ent not in population_dict:
+                    population_dict[ent] = 0
+                population_dict[ent] += 1
+        valid_file.close()
+
+        test_file = open('../data/FB-AUTO/test.txt', 'r')
+        for line in test_file:
+            entities = line.strip().split('\t')[1:]
+            for ent in entities:
+                ent = self.get_ent_id(ent)
+                if ent not in population_dict:
+                    population_dict[ent] = 0
+                population_dict[ent] += 1
+        test_file.close()
+
         return population_dict
 
 

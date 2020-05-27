@@ -40,7 +40,8 @@ class Dataset:
                 self.data[test_arity] = self.read(file_path)
 
 
-        if ds_name == "Small" or ds_name == "Medium" or ds_name == "JF17KS":
+        # if ds_name == "Small" or ds_name == "Medium" or ds_name == "JF17KS" or ds_name == "JF17KS_Small":
+        if ds_name != "JF17K" and ds_name != "M-FB15K":
             self.read_operations()
             self.read_degrees()
             
