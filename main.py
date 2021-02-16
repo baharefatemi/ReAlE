@@ -338,18 +338,14 @@ class Experiment:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-model', type=str, default="HSimplE")
+    parser.add_argument('-model', type=str, default="RealE")
     parser.add_argument('-dataset', type=str, default="JF17K")
     parser.add_argument('-lr', type=float, default=0.01)
     parser.add_argument('-nr', type=int, default=10)
-    parser.add_argument('-out_channels', type=int, default=6)
-    parser.add_argument('-in_channels', type=int, default=1)
-    parser.add_argument('-filt_w', type=int, default=1)
-    parser.add_argument('-filt_h', type=int, default=1)
+    parser.add_argument('-window_size', type=int, default=1)
     parser.add_argument('-emb_dim', type=int, default=200)
     parser.add_argument('-hidden_drop', type=float, default=0.2)
     parser.add_argument('-input_drop', type=float, default=0.2)
-    parser.add_argument('-stride', type=int, default=2)
     parser.add_argument('-num_iterations', type=int, default=1000)
     parser.add_argument('-batch_size', type=int, default=128)
     parser.add_argument("-test", action="store_true", help="If -test is set, then you must specify a -pretrained model. "
