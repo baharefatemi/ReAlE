@@ -2,11 +2,11 @@
 Summary
 =======
 
-This repo contains the implementation of the model proposed in `Knowledge Hypergraphs: Extending Knowledge Graphs Beyond Binary Relations` for knowledge hypergraph embedding, as well as the code for most of the baselines in the paper. 
-The code can be also used to train a `HypE` models for any input graph. 
+This repo contains the implementation of the model proposed in `Knowledge Hypergraph Embedding Meets Relational Algebra` for knowledge hypergraph embedding, as well as the code for synthesizing datasets as explained in the paper. 
+The code can be also used to train a `ReAlE` model for any input graph. 
 
 
-_Note however that the code is designed to handle graphs with arity at most 6 (which is the case for JF17K)._
+_Note however that the code is designed to handle graphs with arity at most 6 (which is the case for the datasets used in this paper)._
 
 The software can be also used as a framework to implement new knowledge hypergraph embedding models.
 
@@ -34,7 +34,7 @@ docker run --rm -it -v {HypE-code-path}:/eai/project --user `id -u`:`id -g` hype
 To train HypE or any of the baselines you should define the parameters relevant to the given model.
 The default values for most of these parameters are the ones that were used to obtain the results in the paper.
 
-- `model`: The name of the model. Valid options are `HypE`, `HSimplE`, `MTransH`, `DistMult`, `MCP`.
+- `model`: The name of the model. Valid options are `RealE`, `HypE`, `HSimplE`, `MTransH`, `DistMult`, `MCP`.
 
 - `dataset`: The dataset you want to run this model on (`JF17K` is included in this repo).
 
@@ -46,11 +46,7 @@ The default values for most of these parameters are the ones that were used to o
 
 - `nr`: number of negative examples per positive example for each arity.
 
-- `out_channels`: number of out channels for convolution filters in HypE.
-
 - `filt_w`: width of convolutional weight filters in HypE.
-
-- `stride`: stride of convolutional weight filters in HypE.
 
 - `emb_dim`: embedding dimension.
 
@@ -70,36 +66,6 @@ The filename is expected to have the form `model_*.chkpnt`. The directory contai
 - `restartable`: when set, the training job will be restartable: it will load the model from the last saved checkpoint in `output_dir`, as well as the `best_model`, and resume training from that point on.
 If this option is set, you must also specify `output_dir`.
 
-
-## Training `HypE` and `HSimplE` 
-You can train by running the following from within Docker (the values provided below are the ones used to obtain the results in the paper):
-```console
-python main.py -model HypE -dataset JF17K -num_iterations 1000 -batch_size 128 -lr 0.1  -filt_w 1 -out_channels 6 -stride 2 -emb_dim 200 -nr 10
-```
-```console
-python main.py -model HSimplE -dataset JF17K -num_iterations 1000 -batch_size 128 -lr 0.01 -emb_dim 200 -nr 10
-```
-
-## Testing a pretrained model
-You can test a pretrained model by running the following:
-```console
-python main.py -model HSimplE -dataset JF17K -pretrained output/my_pretrained_model.chkpnt -test
-```
-
-
-## Baselines
-
-The baselines implemented in this package are `m-DistMult`, `m-CP`, and `m-TransH`. You can train them by running the following:
-
-```console
-python main.py -model MTransH -dataset JF17K -num_iterations 1000 -batch_size 128 -lr 0.06 -emb_dim 200 -nr 10
-```
-```console
-python main.py -model MCP -dataset JF17K -num_iterations 1000 -batch_size 128 -lr 0.02 -emb_dim 34 -nr 10
-```
-```console
-python main.py -model MDitMult -dataset JF17K -num_iterations 1000 -batch_size 128 -lr 0.02 -emb_dim 200 -nr 10
-```
 
 
 
