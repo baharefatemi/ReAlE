@@ -71,8 +71,7 @@ The filename is expected to have the form `model_*.chkpnt`. The directory contai
 If this option is set, you must also specify `output_dir`.
 
 
-
-
+    
 
 Contact
 =======
