@@ -88,9 +88,3 @@ The University of British Columbia
 <bfatemi@cs.ubc.ca>
 
 
-License
-=======
-
-Licensed under the GNU General Public License Version 3.0.
-<https://www.gnu.org/licenses/gpl-3.0.en.html>
-
