@@ -26,7 +26,7 @@ docker build -t hype-image:latest  .
 
 and run using (replace the path to your local repo):
 ```console
-docker run --rm -it -v {HypE-code-path}:/eai/project --user `id -u`:`id -g` hype-image /bin/bash
+docker run --rm -it -v {code-path}:/eai/project --user `id -u`:`id -g` hype-image /bin/bash
 ```
 
 ## Usage
