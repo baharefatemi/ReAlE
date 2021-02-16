@@ -46,9 +46,13 @@ The default values for most of these parameters are the ones that were used to o
 
 - `nr`: number of negative examples per positive example for each arity.
 
-- `filt_w`: width of convolutional weight filters in HypE.
+- `window_size`: window size in ReAlE.
 
 - `emb_dim`: embedding dimension.
+
+- `non_linearity`: non-linearity function to apply on output of each window.
+
+- `ent_non_linearity`: non-linearity to apply on entity embeddings before forwarding.
 
 - `input_drop`: drop out rate for input layer of all models.
 
