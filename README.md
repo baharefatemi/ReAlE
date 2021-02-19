@@ -75,14 +75,14 @@ If this option is set, you must also specify `output_dir`.
 
 If you use this package for published work, please cite the following paper:
 
-@misc{fatemi2021knowledge,
-      title={Knowledge Hypergraph Embedding Meets Relational Algebra}, 
-      author={Bahare Fatemi and Perouz Taslakian and David Vazquez and David Poole},
-      year={2021},
-      eprint={2102.09557},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG}
-}
+      @misc{fatemi2021knowledge,
+            title={Knowledge Hypergraph Embedding Meets Relational Algebra}, 
+            author={Bahare Fatemi and Perouz Taslakian and David Vazquez and David Poole},
+            year={2021},
+            eprint={2102.09557},
+            archivePrefix={arXiv},
+            primaryClass={cs.LG}
+       }
 
 Contact
 =======
