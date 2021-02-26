@@ -12,7 +12,7 @@ from dataset import Dataset
 from tester import Tester
 import math
 
-# DEFAULT_SAVE_DIR = '/knowledge_graphs/RealEv1/outputs'
+DEFAULT_SAVE_DIR = './results/'
 DEFAULT_MAX_ARITY = 6
 
 class Experiment:
@@ -30,17 +30,14 @@ class Experiment:
         self.opt = args.opt
         self.reg = args.reg
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        self.kwargs = {"in_channels":args.in_channels,"out_channels":args.out_channels, "filt_h":args.filt_h, "filt_w":args.filt_w,
-                       "hidden_drop":args.hidden_drop, "stride":args.stride, "input_drop":args.input_drop, "non_linearity": args.non_linearity, "ent_non_linearity": args.ent_non_linearity, "reg":args.reg, "smart_initialization": args.smart_initialization}
-        self.hyperpars = {"model":args.model,"lr":args.lr,"emb_dim":args.emb_dim,"out_channels":args.out_channels,
-                          "filt_w":args.filt_w,"nr":args.nr,"stride":args.stride, "hidden_drop":args.hidden_drop, "input_drop":args.input_drop}
+        self.kwargs = {"window_size":args.window_size,"hidden_drop":args.hidden_drop, "input_drop":args.input_drop, "non_linearity": args.non_linearity, "ent_non_linearity": args.ent_non_linearity}
 
         # Load the dataset
         self.dataset = Dataset(args.dataset, DEFAULT_MAX_ARITY)
 
         self.num_iterations = args.num_iterations
         # Create an output dir unless one is given
-        self.output_dir = self.create_output_dir(args.output_dir)
+        self.output_dir = self.create_output_dir(args.output_dir, args)
         self.measure = None
         self.measure_by_arity = None
         self.test_by_arity = not args.no_test_by_arity
@@ -76,30 +73,8 @@ class Experiment:
         """
         Instantiate a model object given the model name
         """
-        # model = None
-
         model_class = globals()[model_name]
         model = model_class(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        # if(model_name == "MDistMult"):
-        #     model = MDistMult
-        # elif(model_name == "MCP"):
-        #     model = MCP(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        # elif(model_name == "HSimplE"):
-        #     model = HSimplE(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        # elif(model_name == "HypE"):
-        #     model = HypE(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        # elif(model_name == "MTransH"):
-        #     model = MTransH(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        # elif(model_name == "RealEv1"):
-        #     model = RealEv1(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        # elif(model_name == "RealEv3"):
-        #     model = RealEv3(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        # elif(model_name == "GETD"):
-        #     model = GETD(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        # elif(model_name == "ERMLP"):
-        #     model = ERMLP(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        # else:
-        #     raise Exception("!!!! No mode called {} found !!!!".format(self.model_name))
         return model
 
 
@@ -273,14 +248,14 @@ class Experiment:
         # self.save_model(it, "test")
 
 
-    def create_output_dir(self, output_dir=None):
+    def create_output_dir(self, output_dir=None, args=None):
         """
         If an output dir is given, then make sure it exists. Otherwise, create one based on time stamp.
         """
         if output_dir is None:
-            time = datetime.datetime.now()
-            model_name = '{}_{}_{}'.format(self.model_name, self.dataset.name, time.strftime("%Y%m%d-%H%M%S"))
-            output_dir = os.path.join(DEFAULT_SAVE_DIR, self.model_name, model_name)
+            # time = datetime.datetime.now()
+            model_name = '{}_{}_{}'.format(self.dataset.name, str(args.lr), str(args.ent_non_linearity))
+            output_dir = os.path.join(DEFAULT_SAVE_DIR, model_name)
 
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
@@ -342,10 +317,10 @@ if __name__ == '__main__':
     parser.add_argument('-dataset', type=str, default="JF17K")
     parser.add_argument('-lr', type=float, default=0.01)
     parser.add_argument('-nr', type=int, default=10)
-    parser.add_argument('-window_size', type=int, default=1)
+    parser.add_argument('-window_size', type=int, default=2)
     parser.add_argument('-emb_dim', type=int, default=200)
-    parser.add_argument('-hidden_drop', type=float, default=0.2)
-    parser.add_argument('-input_drop', type=float, default=0.2)
+    parser.add_argument('-hidden_drop', type=float, default=0.0)
+    parser.add_argument('-input_drop', type=float, default=0.0)
     parser.add_argument('-num_iterations', type=int, default=1000)
     parser.add_argument('-batch_size', type=int, default=128)
     parser.add_argument("-test", action="store_true", help="If -test is set, then you must specify a -pretrained model. "
@@ -358,8 +333,8 @@ if __name__ == '__main__':
     parser.add_argument('-pretrained', type=str, default=None, help="A path to a trained model (.chkpnt file), which will be loaded if provided.")
     parser.add_argument('-output_dir', type=str, default=None, help="A path to the directory where the model will be saved and/or loaded from.")
     parser.add_argument('-restartable', action="store_true", help="If restartable is set, you must specify an output_dir")
-    parser.add_argument('-non_linearity', type=str, default="none", help="non-linearity function to apply for each step of RealE")
-    parser.add_argument('-ent_non_linearity', type=str, default="none", help="non-linearity to apply on entity embeddings")
+    parser.add_argument('-non_linearity', type=str, default="sigmoid", help="non-linearity function to apply for each step of RealE")
+    parser.add_argument('-ent_non_linearity', type=str, default="sigmoid", help="non-linearity to apply on entity embeddings")
     parser.add_argument('-reg', type=float, default=0.0)
     parser.add_argument('-smart_initialization', action="store_true")
     parser.add_argument('-opt', type=str, default="Adagrad")
@@ -378,3 +353,4 @@ if __name__ == '__main__':
     else:
         print("************** START OF TRAINING ********************", experiment.model_name)
         experiment.train_and_eval()
+
