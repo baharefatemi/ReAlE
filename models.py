@@ -77,5 +77,5 @@ class RealE(BaseClass):
         entity_embs = entity_embs.reshape(entity_embs.shape[0], entity_embs.shape[1], self.w, self.nw)
         results = torch.sum(self.hidden_dropout(self.apply_non_linearity(self.non_linearity, torch.sum(r * entity_embs , (2, 1)) + r_bias)), dim=1)
 
-        return results/self.nw
+        return results
 
