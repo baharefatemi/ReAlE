@@ -71,7 +71,7 @@ The filename is expected to have the form `model_*.chkpnt`. The directory contai
 If this option is set, you must also specify `output_dir`.
 
 ## Train ReAlE
-You can train by running the following from within Docker (the values provided below are the ones used to obtain the results in the paper):
+You can train by running the following from within Docker:
 
 ```console
 python main.py -dataset JF17K -lr 0.08 -nr 100 -window_size 2 -batch_size 512 -output_dir reale_results/
