@@ -70,6 +70,12 @@ The filename is expected to have the form `model_*.chkpnt`. The directory contai
 - `restartable`: when set, the training job will be restartable: it will load the model from the last saved checkpoint in `output_dir`, as well as the `best_model`, and resume training from that point on.
 If this option is set, you must also specify `output_dir`.
 
+## Train ReAlE
+You can train by running the following from within Docker (the values provided below are the ones used to obtain the results in the paper):
+
+```console
+python main.py -dataset JF17K -lr 0.08 -nr 100 -window_size 2 -batch_size 512 -output_dir reale_results/
+```
 
 ## Cite ReAlE
 
